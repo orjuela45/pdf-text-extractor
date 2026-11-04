@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+coverage
+.vite
+*.local
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# TypeScript incremental build info (*.tsbuildinfo)
+*.tsbuildinfo
