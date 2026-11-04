@@ -1,0 +1,1 @@
+export const DEFAULT_BASELINE_TOLERANCE_RATIO = 0.3;

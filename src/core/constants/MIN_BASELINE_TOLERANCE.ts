@@ -1,0 +1,1 @@
+export const MIN_BASELINE_TOLERANCE = 1;
