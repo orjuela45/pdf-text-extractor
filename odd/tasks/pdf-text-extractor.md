@@ -64,3 +64,33 @@ verbatim strings.
   `gist`, `read:org`, `repo`, HTTPS protocol) and SSH key `~/.ssh/id_ed25519` handshaking as
   `orjuela45`. `gh auth setup-git` installed the credential helper for `github.com`.
 - Repo visibility is not yet decided; no remote has been created.
+
+**L6** (T1 closed, evidence): commit `68ee0a4` — `chore: bootstrap the PDF text extractor project`,
+15 files on `main`. Verified: `tsc --noEmit` exit 0, `eslint .` exit 0, `vitest run` 1/1 passed,
+`vite build` exit 0, `pnpm peers check` clean.
+- Branching: T1 is the repository bootstrap and lands on `main`, because a default branch with zero
+  commits can be neither pushed nor protected. T2 onwards land on `feat/pdf-text-extractor`.
+- Toolchain actually resolved: vite 8.3.5, vitest 5.1.0, react 19.3, eslint 10.14, tailwind 4.3.4,
+  typescript **6.0.3** — deliberately not the 7.0.2 that `latest` resolves to, because
+  `typescript-eslint@8.72.1` declares peer `typescript >=4.8.4 <6.1.0` and throws on startup with
+  TS 7. Revisit when typescript-eslint supports TS 7.
+- Each task's commit hash is recorded in this Log one commit late: a commit cannot contain its own
+  hash. The subject line is the stable reference; the hash is corroboration.
+
+**L7** (T2 closed, evidence): commit subject `feat(core): model PDF text and extract it through
+pdf.js`. Files: `src/core/model.ts`, `src/core/pdf/{text-content,extract,load}.ts` plus two test
+files. Checks observed: `vitest run` 13/13 passed, `tsc --noEmit` 0, `eslint .` 0,
+`prettier --check .` clean, `vite build` 0.
+- Coverage: `text-content.ts` and `extract.ts` at 100% branches. `load.ts` at 0% — deliberately
+  untested here because it is glue around pdf.js `getDocument` and its real coverage comes from
+  real-PDF tests in T6. This is an open gap, not a closed one.
+- Test-first note: the malformed-transform test went RED first and the failure was my own faulty
+  expectation, not a code defect. It exposed that the `NaN` sat in matrix cell `e` (x) while `f`
+  (y) stayed readable — so the assertion was rewritten to prove degradation is *per cell*.
+- Design decision: `core` never imports `pdfjs-dist`. The pdf.js item shape and the page/document
+  shapes are declared **structurally**, so the mapping and the extraction walk are testable with
+  plain objects, no worker and no browser. `load.ts` is the single pdf.js-aware module.
+- Design decision: `core` throws no user-facing text. User-visible copy belongs to the UI layer, so
+  later error mapping cannot leak English strings into the Spanish interface.
+- Known limitation recorded for T11: pages rotated 90/270 are detected (`rotation` is kept) but
+  their fragments are laid out as if horizontal. Vertical `ttb` runs are captured, not laid out.
