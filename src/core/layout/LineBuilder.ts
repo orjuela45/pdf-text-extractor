@@ -27,6 +27,7 @@ export class LineBuilder {
         fontSize: dominantSize,
       });
       current = [];
+      dominantSize = 0;
     };
 
     for (const candidate of ordered) {
@@ -38,11 +39,10 @@ export class LineBuilder {
         flush();
       }
 
+      dominantSize = Math.max(dominantSize, candidate.fontSize);
+
       if (current.length === 0) {
         baseline = candidate.y;
-        dominantSize = candidate.fontSize;
-      } else {
-        dominantSize = Math.max(dominantSize, candidate.fontSize);
       }
 
       current.push(candidate);

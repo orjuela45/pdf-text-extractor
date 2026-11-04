@@ -94,3 +94,118 @@ files. Checks observed: `vitest run` 13/13 passed, `tsc --noEmit` 0, `eslint .` 
   later error mapping cannot leak English strings into the Spanish interface.
 - Known limitation recorded for T11: pages rotated 90/270 are detected (`rotation` is kept) but
   their fragments are laid out as if horizontal. Vertical `ttb` runs are captured, not laid out.
+
+**L8** (user instruction, verbatim): *"si y publico y continua, no hagas commits, quiero ver wl codigo antes"*
+- Repo published: `https://github.com/orjuela45/pdf-text-extractor`, **public**, with `main` and
+  `feat/pdf-text-extractor` pushed. `gh auth setup-git` had already installed the credential helper
+  for account `orjuela45`.
+- **Standing instruction, overrides the per-task commit rule in L5: no commits until the user has
+  reviewed the code.** User decisions beat ODD momentum. Consequence: a tracked task no longer closes
+  with its commit, so T3 is `blocked` on the user's review rather than `done`, and later tasks are not
+  started, because piling unreviewed work would grow exactly the review this instruction exists to
+  protect.
+
+**L9** (T3 closed pending review, evidence): files `src/core/layout/lines.ts`,
+`src/core/layout/lines.test.ts`, plus `TextLine` added to `src/core/model.ts` and the shared
+`src/test/fragments.ts` factory.
+- Checks observed: `vitest run` 24/24 passed, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .`
+  clean, `vite build` 0. Coverage of `src/core`: **100% branches**, and `load.ts` remains the single
+  uncovered file (0%, deferred to T6 by design).
+- Test-first, honestly reported: the observed RED was an unresolved-import failure, which proves
+  nothing about behaviour. It was compensated with a **mutation check** instead of being dressed up as
+  evidence.
+- Mutation check, three deliberate defects injected one at a time into `lines.ts`:
+  - flipping the line order (top-down backwards) → 3 tests failed;
+  - deleting the left-to-right sort inside a line → 1 test failed;
+  - collapsing the baseline tolerance to zero → 3 tests failed.
+  Every defect was caught, and `lines.ts` was confirmed byte-identical to the original afterwards.
+- Finding from that check: removing the inner sort does **not** fail the test named "sorts the
+  fragments of a line left to right whatever their input order", because the outer sort already orders
+  by `x` when `y` ties. The inner sort is still load-bearing and still protected — it is the
+  mixed-baseline test that pins it. Recorded so a future reader does not delete it as redundant.
+- Design decisions: the page is walked top-down, which in PDF user space means **largest baseline
+  first**; every sort is written that way, and reversing it silently flips a document. The baseline
+  tolerance is `max(1, max(dominantSize, fragmentSize) * 0.3)` — deliberately generous, because
+  splitting a line that belongs together injects a bogus paragraph break, which costs more than
+  merging two lines whose baselines nearly coincide. A line anchors on its highest baseline and
+  reports the largest font size on it as its dominant height.
+- Known limitation for T5: multi-column pages are not segmented here. Two columns with aligning
+  baselines merge into one line.
+
+**L10** (user style instruction, verbatim): *"algunos ajustes que recomiendo, no pongas muchyos
+bloques de comentarios, en lo esencial, nada, no me gustas, las interfaces y constantes no deben estar
+en el mismo archivo deben estar aparte, y funciones sueltas en archivos no quiero, de ser posible usar
+clases tipo OOP, esto no solo para este proyecto sino en general"*
+- Explicitly project-independent. Saved to memory with `global` scope so it applies to every future
+  project, not only this one.
+- Convention adopted, user-selected after being offered the alternatives:
+  - interfaces **grouped by domain** in `src/core/models/` (`text`, `page`, `pdfjs`, `layout`,
+    `extraction`) with a barrel `index.ts`, never in the same file as the implementation;
+  - constants **one per file** in `src/core/constants/` with a barrel `index.ts`;
+  - classes with **configured instances** — `new LineBuilder({ baselineToleranceRatio }).build(…)` —
+    instead of static methods or loose functions;
+  - **zero comments in source.** Rationale lives in this document, not in the code. This is the whole
+    point of the rule: the source stays clean and the reasoning stays where it belongs.
+- Consequence applied to test scaffolding too: `FragmentFactory`, `RawItemFactory`, `FakePdfPage` and
+  `FakePdfDocument` are classes, not helper functions. `FakePdfPage` records the viewport parameters it
+  was called with, which replaced `vi.fn()` spying with a real recording fake.
+- `models/` is excluded from coverage: those files emit no runtime code, so reporting them would be
+  noise.
+- Refactor scope: T2 and T3 were rewritten wholesale. Removed: `core/model.ts`,
+  `core/pdf/{text-content,extract,load}.ts` with their tests, `core/layout/lines.ts` with its test, and
+  `test/fragments.ts`.
+- The speculative `isBlank` helper was dropped rather than ported: nothing consumed it, and it is
+  reborn in T4 where whitespace handling actually belongs.
+- Evidence **after** the refactor, since a refactor invalidates everything measured before it:
+  `vitest run` 23/23, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean, `vite build` 0,
+  coverage of `src/core` at 100% branches with `PdfDocumentLoader.ts` the only uncovered file (0%,
+  deferred to T6 by design).
+- The mutation check was **re-established** on the refactored code instead of being carried over: the
+  three defects were injected together and 6 tests failed, then `LineBuilder.ts` was restored
+  byte-identical and the suite went green again.
+- Lint finding: `@typescript-eslint/no-unused-vars` does **not** honour the `_` prefix that TypeScript's
+  `noUnusedParameters` does, so `_parameters` in a test double still errors. Resolved by removing the
+  unused parameter instead of loosening the rule.
+
+**L11** (user TODO review request, verbatim): *"puse un todo para que revises y me digas si es viable o no"*
+- The TODO was not where the tooling could see it: absent from the `todo` list, from `odd/`, from any
+  file in the project, and from GitHub (no issues, no PRs, no extra branches, no gists). It had been
+  written as a **comment inside the source**, `src/core/layout/LineBuilder.ts`: *"todo: no seria mejor
+  primero setear lo de dominantSize del else y luego dejar el if, para omitir el else"*.
+- **Verdict: viable, with one condition.** Computing `dominantSize` unconditionally and keeping only the
+  `baseline` branch works, but only if `flush()` resets `dominantSize` to 0. Without that reset, the
+  dominant font size of one line leaks into the next, the tolerance never shrinks back, and later lines
+  merge into one.
+- Not hypothetical: a 40pt heading followed by 10pt body text loosens the tolerance from 3 points to 12,
+  so body lines 10 points apart collapse into a single line. Heading-then-body is the ordinary shape of
+  a real document, not a corner case.
+- Applied: `flush()` now ends with `current = []; dominantSize = 0;`, and the loop body sets
+  `dominantSize = Math.max(dominantSize, candidate.fontSize)` before a lone
+  `if (current.length === 0) { baseline = candidate.y; }`.
+- **The suite had no coverage for that reset.** Deleting `dominantSize = 0` from `flush()` was caught by
+  nothing, because every existing case kept one font size across one page. Added
+  `does not let a large font loosen the tolerance of later lines` as the regression guard.
+- Proven rather than assumed: with the reset the suite is 24/24; deleting the reset fails **only** the
+  new test (23 passed, 1 failed); restoring returns 24/24.
+- Trade-off recorded honestly: the refactor is three lines shorter but replaces a self-contained reset
+  with an invariant spanning two places — the loop now *assumes* `dominantSize` is 0 whenever `current`
+  is empty. That assumption is exactly what the new test pins, which is what makes the trade acceptable.
+- The user's comment was removed: it is resolved, and the convention forbids comments in source.
+- Housekeeping finding: `src/core/layout/LineBuilder.ts` had become **untracked** in the git index, so a
+  commit at that moment would have silently omitted the class while the test file went in. Staged again.
+- Evidence: `vitest run` 24/24, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean,
+  `vite build` 0, `src/core` at 100% branches.
+
+**L12** (commits authorized by the user, verbatim: *"haz commit"*)
+- Split into **two commits** rather than one, so the structural refactor and the behaviour change that
+  came out of the review TODO can be reviewed, and reverted, independently. The TODO fix is the part
+  with a real behaviour consequence, and mixing it into a 27-file restructure would bury it.
+- Commit 1 `1608428` — `refactor(core): restructure the core into models, constants and classes`.
+  27 files, +630/-458. Both files of the fix were temporarily rolled back to their pre-TODO state so
+  this commit is a pure restructure, and the state was verified green **before** landing: 23/23 tests,
+  `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean, `vite build` 0.
+- Commit 1 deliberately excludes this document, so the Log entry describing the TODO fix does not land
+  in the commit that does not contain that fix.
+- Commit 2 — `fix(core): reset the dominant font size between lines`, carrying the review TODO fix, its
+  regression test, and this document.
+- Push has **not** been performed for either commit; it remains a separate decision.

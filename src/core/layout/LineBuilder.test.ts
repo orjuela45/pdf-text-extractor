@@ -95,6 +95,20 @@ describe('LineBuilder', () => {
     expect(large).toHaveLength(1);
   });
 
+  it('does not let a large font loosen the tolerance of later lines', () => {
+    const lines = builder.build([
+      fragments.create({ text: 'titulo', y: 740, fontSize: 40 }),
+      fragments.create({ text: 'cuerpo uno', y: 700, fontSize: 10 }),
+      fragments.create({ text: 'cuerpo dos', y: 690, fontSize: 10 }),
+    ]);
+
+    expect(lines.map((line) => line.fragments.map((fragment) => fragment.text))).toEqual([
+      ['titulo'],
+      ['cuerpo uno'],
+      ['cuerpo dos'],
+    ]);
+  });
+
   it('honours an explicit baseline tolerance ratio', () => {
     const candidates = [
       fragments.create({ text: 'a', y: 700 }),
