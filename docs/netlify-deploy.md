@@ -104,3 +104,23 @@ abierta: si ves errores de CSP, avisame con el mensaje exacto y lo ajusto.
 - **El dominio queda en "Awaiting external DNS"**: la propagación puede tardar hasta un par
   de horas. No borres ni recrees el registro mientras espera.
 - **Cargaste un PDF y no pasó nada**: mirá la consola del navegador y avisame el error.
+
+---
+
+## Corrección: sobre la CSP y lo que está verificado
+
+Una versión anterior de esta guía decía que `pnpm test:browser` ejercitaba la CSP, porque las
+cabeceras están espejadas en la configuración de `preview` de Vite. **Eso era falso y lo corrijo
+acá.** El script de navegador levanta su propio servidor estático, que solo define `content-type`,
+así que las cabeceras de seguridad **no se aplican** y el chequeo no las prueba. La verificación
+independiente lo comprobó: la respuesta no traía CSP ni `X-Frame-Options`.
+
+Qué significa para vos, en concreto:
+
+- El `netlify.toml` define las cabeceras y `pnpm build` funciona, pero **nadie las ejerció
+  todavía**. La primera vez que se apliquen de verdad va a ser en el despliegue.
+- Por eso, cuando despliegues, **abrí la consola del navegador antes de dar por bueno el sitio**.
+  Si ves errores de `Content-Security-Policy`, pegame el mensaje exacto y lo ajusto.
+- `pnpm preview` a mano sí las aplica; el script de test, no.
+
+Lo dejo anotado como lo que es: una parte de la entrega **sin verificar**, no una parte verificada.

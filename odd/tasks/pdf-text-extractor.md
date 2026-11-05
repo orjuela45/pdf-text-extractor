@@ -615,3 +615,48 @@ paragraph to get its corrected text on the clipboard.
 - Evidence: `vitest run` 182 passed / 1 skipped, `tsc` 0, `eslint` 0, `prettier --check` clean,
   `vite build` 0, `pnpm test:browser` 7/7 PASS with the CSP applied, no comments in any `.ts`, `.tsx` or `.js`
   including the root configs.
+
+**L31** (T13 — independent verification verdict. **The verification found real defects and one false
+claim of mine. This entry exists to record them, not to soften them.**)
+- Verified by a separate verifier agent, read-only, in a fresh copy of the tree with the original left
+  byte-identical. Its baseline matched ours exactly: typecheck 0, lint 0, format clean, 182 passed /
+  1 skipped, `src/core` 100% branches and statements, `pnpm test:browser` 7/7.
+- **A false claim of mine, corrected rather than explained away.** L30 and `docs/netlify-deploy.md` said
+  `pnpm test:browser` exercises the CSP because `preview.headers` mirrors `netlify.toml`. **That is
+  false.** The browser script runs its own static server which sets only `content-type`, so the security
+  headers were never applied; the verifier probed the response and found no CSP and no `X-Frame-Options`.
+  The claim came from reasoning about the config instead of observing the response — the exact failure
+  mode I had already recorded twice in this Log. Both documents now say the CSP is **unverified**, and
+  `docs/netlify-deploy.md` tells the user to open the console on the first deploy. **I did the thing I had
+  been warning about.**
+- **Defect, blocker, S2 + S4: multi-column pages interleave.** `LineBuilder` clusters by `y` alone, so two
+  columns whose baselines align merge into one line. Reproduced through the real pipeline and through the
+  real clipboard: clicking a left-column paragraph copies left and right column text interleaved
+  (`columna izquierda uno columna derecha uno columna izquierda dos columna derecha dos`). This was a
+  known limitation in L9 written down as "multi-column pages are not segmented" and then never surfaced
+  to the user as a product-level caveat. It is the largest real defect in the project.
+- **Defect, blocker, S3: my dehyphenation rule deletes a hard compound hyphen.** `franco-` + `aleman`
+  copies as `francoaleman` instead of `franco-aleman`. The L14 rule welds whenever the hyphen is attached
+  to a letter and the next line starts lowercase, and it cannot tell a hyphenated line break from a
+  genuine compound hyphen. Reproduced through the real clipboard.
+- **False statement in `README.md`:** the suspicious-join signal is described as needing a content scale
+  "above about 2". The verifier found it firing at about 1.1. The L27 wording was carried forward without
+  re-measuring.
+- **A hollow test.** `tests/PdfDocumentLoader.test.ts` "falls back to the bundled worker URL" asserts only
+  that the value is non-empty, so it passes with the default replaced by `'WRONG-WORKER-URL'`. It claims to
+  pin the bundled URL and does not.
+- **Two boundary mutations survive the whole suite:** `BlockBuilder`'s gap comparison `>` → `>=` and
+  `BlockHitTester`'s bottom boundary `>=` → `>`. 100% branch coverage is real but is **not**
+  mutation-complete; branch coverage counts decisions taken, not boundaries pinned.
+- **Coverage scope worth stating plainly:** the coverage config includes `src/core/**` only. **All of
+  `src/ui/` is outside the metric**, so "100% coverage" must never be read as covering the interface.
+- Suite-invisible behaviours named by the verifier: the CSP in the browser check, any real Netlify
+  deploy, multi-column order, the hard-hyphen weld, the native-selection copy path (Ctrl+C bypasses
+  assembly and returns raw text-layer text), the clipboard-denied fallback in a real browser, render
+  errors swallowed by a `.catch(() => undefined)` that leaves a stuck loading state, RTL and vertical
+  text (`direction` and `hasEOL` are captured and never consumed), real drag-and-drop, and page-count
+  scalability.
+- The verifier left ready-to-commit regression probes for the two blockers and the hollow test. **They are
+  not applied**, because applying them requires a fix round and the honest state of the tree right now is
+  "verified, with two blockers and one false claim corrected". Handing a broken behaviour a green test
+  would be worse than leaving the defects named.
