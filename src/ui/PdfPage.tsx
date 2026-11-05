@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { PENDING_PAGE_VIEWPORT } from './constants';
 import type { PageRenderViewport, Point, ViewerPage } from './models';
 import { PageRenderer } from './PageRenderer';
 import { PdfPageView } from './PdfPageView';
@@ -42,22 +43,24 @@ export function PdfPage({ page, document, scale, onCopyAt }: PdfPageProps) {
     };
   }, [document, page.index, scale]);
 
-  if (viewport === null) {
-    return (
-      <div className="rounded-lg border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-        {`Preparando la página ${page.index + 1}…`}
-      </div>
-    );
-  }
+  const rendered = viewport ?? PENDING_PAGE_VIEWPORT;
 
   return (
-    <PdfPageView
-      width={viewport.width}
-      height={viewport.height}
-      transform={viewport.transform}
-      canvasRef={canvasRef}
-      textLayerRef={textLayerRef}
-      onCopyAt={(point) => onCopyAt(page.index, point)}
-    />
+    <div className="flex flex-col gap-2">
+      {viewport === null ? (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-8 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+          {`Preparando la página ${page.index + 1}…`}
+        </p>
+      ) : null}
+
+      <PdfPageView
+        width={rendered.width}
+        height={rendered.height}
+        transform={rendered.transform}
+        canvasRef={canvasRef}
+        textLayerRef={textLayerRef}
+        onCopyAt={(point) => onCopyAt(page.index, point)}
+      />
+    </div>
   );
 }

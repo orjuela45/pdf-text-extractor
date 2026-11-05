@@ -5,6 +5,7 @@ import {
   StandardFonts,
   beginText,
   concatTransformationMatrix,
+  degrees,
   endText,
   setFontAndSize,
   setTextMatrix,
@@ -114,6 +115,13 @@ end`;
   async noTextLayer(): Promise<Uint8Array> {
     const { document, page } = await this.createPage();
     page.drawRectangle({ x: 72, y: 700, width: 200, height: 40 });
+    return await document.save();
+  }
+
+  async rotatedPage(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    page.setRotation(degrees(90));
+    this.draw(page, font, 'parrafo rotado', 72, 700, 12);
     return await document.save();
   }
 

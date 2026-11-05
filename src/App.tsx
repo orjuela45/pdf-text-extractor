@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { CopyFeedback } from './ui/CopyFeedback';
+import { ErrorNotice } from './ui/ErrorNotice';
+import { NoTextPanel } from './ui/NoTextPanel';
+import { OutlinePanel } from './ui/OutlinePanel';
 import { PDF_RENDER_SCALE } from './ui/constants';
 import { Dropzone } from './ui/Dropzone';
 import type { CopyOutcome, Point } from './ui/models';
@@ -10,12 +13,36 @@ import { usePdfDocument } from './ui/usePdfDocument';
 const EMPTY_OUTCOME: CopyOutcome = { text: null, copied: false };
 
 export function App() {
-  const { status, progress, pages, report, document, open, copyBlockAt } = usePdfDocument();
+  const {
+    status,
+    progress,
+    pages,
+    report,
+    outline,
+    error,
+    document,
+    open,
+    copyBlockAt,
+    copySection,
+    copyAll,
+  } = usePdfDocument();
   const [feedback, setFeedback] = useState<CopyOutcome>(EMPTY_OUTCOME);
 
   const handleCopyAt = async (pageIndex: number, point: Point): Promise<void> => {
     setFeedback(await copyBlockAt(pageIndex, point));
   };
+
+  const handleCopySection = async (index: number): Promise<void> => {
+    setFeedback(await copySection(index));
+  };
+
+  const handleCopyAll = async (): Promise<void> => {
+    setFeedback(await copyAll());
+  };
+
+  const hasText = report !== null && report.stats.fragments > 0;
+  const showNoText = status === 'ready' && report !== null && !hasText;
+  const showDocument = status === 'ready' && !showNoText;
 
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -26,7 +53,7 @@ export function App() {
         </p>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-6">
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6">
         <Dropzone onFile={(file) => void open(file)} disabled={status === 'loading'} />
 
         {status === 'loading' ? (
@@ -37,29 +64,39 @@ export function App() {
           </p>
         ) : null}
 
-        {status === 'error' ? (
-          <p role="alert" className="text-sm text-rose-700 dark:text-rose-400">
-            No se pudo leer el PDF. Verificá que el archivo no esté dañado ni protegido con
-            contraseña.
-          </p>
-        ) : null}
+        {error !== null ? <ErrorNotice error={error} /> : null}
 
-        {report !== null ? <ReportPanel report={report} /> : null}
+        {report !== null && !showNoText ? <ReportPanel report={report} /> : null}
+
         <CopyFeedback outcome={feedback} onDismiss={() => setFeedback(EMPTY_OUTCOME)} />
 
-        {status === 'ready' ? (
+        {showNoText ? <NoTextPanel /> : null}
+
+        {showDocument ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Hacé clic en un párrafo del documento para copiar su texto ya corregido.
           </p>
         ) : null}
 
-        {status === 'ready' && pages.length > 0 ? (
-          <PdfViewer
-            pages={pages}
-            document={document}
-            scale={PDF_RENDER_SCALE}
-            onCopyAt={(pageIndex, point) => void handleCopyAt(pageIndex, point)}
-          />
+        {showDocument ? (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+            <OutlinePanel
+              entries={outline}
+              onCopySection={(index) => void handleCopySection(index)}
+              onCopyAll={() => void handleCopyAll()}
+            />
+
+            {pages.length > 0 && document !== null ? (
+              <section aria-label="Documento">
+                <PdfViewer
+                  pages={pages}
+                  document={document}
+                  scale={PDF_RENDER_SCALE}
+                  onCopyAt={(pageIndex, point) => void handleCopyAt(pageIndex, point)}
+                />
+              </section>
+            ) : null}
+          </div>
         ) : null}
       </main>
     </div>

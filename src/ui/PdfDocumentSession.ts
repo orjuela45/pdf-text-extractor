@@ -2,7 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { ProgressListener, QualityReport } from '../core/models';
 import { PdfDocumentLoader } from '../core/pdf/PdfDocumentLoader';
 import { ExtractionSession } from './ExtractionSession';
-import type { CopyOutcome, Point, ViewerPage } from './models';
+import type { CopyOutcome, OutlineEntry, Point, ViewerPage } from './models';
 
 export class PdfDocumentSession {
   private readonly loader: PdfDocumentLoader;
@@ -36,7 +36,19 @@ export class PdfDocumentSession {
     return this.extraction.qualityReport;
   }
 
+  get outline(): readonly OutlineEntry[] {
+    return this.extraction.outline;
+  }
+
   copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome> {
     return this.extraction.copyBlockAt(pageIndex, point);
+  }
+
+  copySection(index: number): Promise<CopyOutcome> {
+    return this.extraction.copySection(index);
+  }
+
+  copyAll(): Promise<CopyOutcome> {
+    return this.extraction.copyAll();
   }
 }

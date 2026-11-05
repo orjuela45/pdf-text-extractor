@@ -7,13 +7,16 @@ import type {
   QualityReport,
   TextBlock,
   TextLine,
+  TextSection,
 } from '../core/models';
 import { PdfTextExtractor } from '../core/pdf/PdfTextExtractor';
 import { QualityReporter } from '../core/report/QualityReporter';
 import { TextAssembler } from '../core/text/TextAssembler';
 import { BlockHitTester } from './BlockHitTester';
 import { ClipboardWriter } from './ClipboardWriter';
-import type { CopyOutcome, Point, ViewerPage } from './models';
+import type { CopyOutcome, OutlineEntry, Point, ViewerPage } from './models';
+import { OutlineBuilder } from './OutlineBuilder';
+import { SectionTextAssembler } from './SectionTextAssembler';
 
 export interface ExtractionSessionConfig {
   readonly clipboard?: ClipboardWriter;
@@ -27,8 +30,11 @@ export class ExtractionSession {
   private readonly reporter: QualityReporter;
   private readonly hitTester: BlockHitTester;
   private readonly clipboard: ClipboardWriter;
+  private readonly sectionTexts: SectionTextAssembler;
+  private readonly outlineBuilder: OutlineBuilder;
 
   private pages: ViewerPage[] = [];
+  private sections: TextSection[] = [];
   private report: QualityReport | null = null;
 
   constructor(config: ExtractionSessionConfig = {}) {
@@ -39,6 +45,8 @@ export class ExtractionSession {
     this.reporter = new QualityReporter();
     this.hitTester = new BlockHitTester();
     this.clipboard = config.clipboard ?? new ClipboardWriter();
+    this.sectionTexts = new SectionTextAssembler();
+    this.outlineBuilder = new OutlineBuilder(this.sectionTexts);
   }
 
   async extract(document: PdfDocumentLike, onProgress?: ProgressListener): Promise<void> {
@@ -59,6 +67,7 @@ export class ExtractionSession {
     const sections = this.sectionBuilder.build(blocks.flat());
 
     this.pages = pages;
+    this.sections = sections;
     this.report = this.reporter.report({ document: model, lines, blocks, sections });
   }
 
@@ -68,6 +77,16 @@ export class ExtractionSession {
 
   get qualityReport(): QualityReport | null {
     return this.report;
+  }
+
+  get outline(): readonly OutlineEntry[] {
+    return this.outlineBuilder.build(this.sections);
+  }
+
+  sectionText(index: number): string | null {
+    const section = this.sections[index];
+
+    return section === undefined ? null : this.sectionTexts.section(section);
   }
 
   async copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome> {
@@ -84,6 +103,26 @@ export class ExtractionSession {
     }
 
     const text = this.assembler.assembleBlock(block);
+
+    return { text, copied: await this.clipboard.write(text) };
+  }
+
+  async copySection(index: number): Promise<CopyOutcome> {
+    const text = this.sectionText(index);
+
+    if (text === null || text === '') {
+      return { text: null, copied: false };
+    }
+
+    return { text, copied: await this.clipboard.write(text) };
+  }
+
+  async copyAll(): Promise<CopyOutcome> {
+    const text = this.sectionTexts.document(this.sections);
+
+    if (text === '') {
+      return { text: null, copied: false };
+    }
 
     return { text, copied: await this.clipboard.write(text) };
   }

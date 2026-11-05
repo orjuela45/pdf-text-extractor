@@ -87,4 +87,64 @@ describe('ExtractionSession', () => {
       characters: 45,
     });
   });
+
+  it('exposes an outline with each heading and its level', async () => {
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
+
+    await session.extract(documents.createHeadings());
+
+    expect(
+      session.outline.map((entry) => ({ heading: entry.heading, level: entry.level })),
+    ).toEqual([
+      { heading: '1. Introduccion', level: 1 },
+      { heading: 'Metodos', level: 2 },
+    ]);
+  });
+
+  it('copies a section as its heading plus its assembled blocks', async () => {
+    const clipboard = new FakeClipboard();
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(clipboard) });
+
+    await session.extract(documents.createHeadings());
+
+    const outcome = await session.copySection(0);
+
+    expect(outcome).toEqual({
+      text: '1. Introduccion\n\nTexto de introduccion uno Texto de introduccion dos',
+      copied: true,
+    });
+    expect(clipboard.written).toEqual([
+      '1. Introduccion\n\nTexto de introduccion uno Texto de introduccion dos',
+    ]);
+  });
+
+  it('copies the whole document text', async () => {
+    const clipboard = new FakeClipboard();
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(clipboard) });
+
+    await session.extract(documents.createHeadings());
+
+    const outcome = await session.copyAll();
+
+    expect(outcome).toEqual({
+      text: '1. Introduccion\n\nTexto de introduccion uno Texto de introduccion dos\n\nMetodos\n\nTexto de metodos uno Texto de metodos dos',
+      copied: true,
+    });
+    expect(clipboard.written).toHaveLength(1);
+  });
+
+  it('returns no text for a section that does not exist', async () => {
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
+
+    await session.extract(documents.createHeadings());
+
+    expect(session.sectionText(9)).toBeNull();
+    expect(await session.copySection(9)).toEqual({ text: null, copied: false });
+  });
+
+  it('returns no text when there is nothing extracted yet', async () => {
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
+
+    expect(await session.copyAll()).toEqual({ text: null, copied: false });
+  });
 });

@@ -22,6 +22,29 @@ export class SessionDocuments {
     ]);
   }
 
+  createHeadings(): FakePdfDocument {
+    const rows: readonly [string, number, number][] = [
+      ['1. Introduccion', 18, 720],
+      ['Texto de introduccion uno', 12, 690],
+      ['Texto de introduccion dos', 12, 676],
+      ['Metodos', 14, 640],
+      ['Texto de metodos uno', 12, 610],
+      ['Texto de metodos dos', 12, 596],
+    ];
+
+    return new FakePdfDocument([
+      new FakePdfPage({
+        items: rows.map(([text, size, y]) =>
+          this.raw.create(text, {
+            transform: [size, 0, 0, size, 100, y],
+            width: text.length * 5,
+            height: size,
+          }),
+        ),
+      }),
+    ]);
+  }
+
   createTwoLineParagraph(): FakePdfDocument {
     return new FakePdfDocument([
       new FakePdfPage({

@@ -548,3 +548,46 @@ paragraph to get its corrected text on the clipboard.
   so the core contract holds, so a rotated PDF displays sideways. Known since L7, still unresolved.
 - The Vite chunk-size warning is pre-existing pdf.js weight, not new in T8/T9. No new runtime dependency and
   no network call was added; the PDF never leaves the browser.
+
+**L29** (T10 + T11 closed, evidence — and **the browser gap in L28 is now closed**):
+- T10: `OutlinePanel`, `OutlineBuilder`, `SectionTextAssembler`, plus `copySection` / `copyAll` on
+  `ExtractionSession`. Outline entries carry heading (or an untitled placeholder), level and assembled text.
+  A section body is mounted **only when expanded**, so a long document never puts its whole text in the DOM,
+  and a browser check asserts exactly that. Spanish copy, `aria-label` / `aria-expanded` / `aria-controls`,
+  keyboard reachable, copy-all as the first tab stop.
+- T11: `PdfErrorMapper` maps `PasswordException` to an exact Spanish message and everything else to an
+  unreadable-file message, which also covers worker failure. `NoTextPanel` makes zero fragments explicit.
+  `FileSizeGuard` at **100 MB**, and the message now states the limit *and* the reason. Rotated pages are
+  fixed rather than warned about: the viewer renders with the page's own rotation and `CoordinateMapper` is
+  built from that same viewport transform, because the pdf.js viewport transform maps **unrotated** PDF user
+  space — the space core geometry and `item.transform` both live in — onto the rotated canvas. **`src/core`
+  is untouched and stays rotation-agnostic.**
+- **The real-browser check found two failures that 182 unit and component tests could not, which is the
+  entire justification for having built it.**
+  1. *Click-to-copy failing* was a **verification-script defect, not an application defect.** Puppeteer's
+     `overridePermissions` resets every unlisted permission to denied, and it maps `clipboard-write` to
+     `clipboardReadWrite`; the `clipboardSanitizedWrite` permission that `writeText` actually needs was
+     therefore revoked. The evidence was an isolation matrix over permission sets plus a DOM probe showing
+     the app had **already put the correct corrected text in the fallback textarea** while `writeText` threw
+     `NotAllowedError`. The fix was to grant the missing permission; **the assertion was not loosened.**
+  2. *Rotated pages* was a **genuine application defect.** pdf.js positions its text-layer spans against
+     `viewport.rawDims`, which are the **unrotated** page dimensions, and relies on global
+     `[data-main-rotation]` rules in `pdf_viewer.css`. The minimal local port of `.textLayer` in L28 dropped
+     those rules, so the canvas rotated while the overlay did not. Evidence: `.pdf-page`/canvas measured
+     792x612 while `.textLayer` measured 612x792, with the span placed from the unrotated box. Fix: port the
+     three rotation rules exactly. `PageRenderer` already used the rotated viewport, so the interrupted
+     refactor was right and only the CSS was missing.
+- Evidence, all re-run by the parent rather than taken from the report: `vitest run` **182 passed / 1 skipped**,
+  `tsc` 0 on both configs, `eslint` 0, `prettier --check` clean, `vite build` 0, `src/core` 100% on all four
+  metrics, no comments in source, `git status --porcelain -- src/core` empty, and **`pnpm test:browser` 7/7
+  PASS** including `clicking a paragraph writes the corrected text to the clipboard` observed through the real
+  `navigator.clipboard`.
+- Five mutations on the new logic (outline level, section joining, the password mapping, the renderer's
+  viewport call, the size-guard boundary), each caught by a named test and each restored byte-identically.
+- The 100 MB guard is a coarse safety valve, not a considered product limit: the app holds the whole file as
+  an `ArrayBuffer` and mounts one canvas plus one text layer per page with **no virtualization**, and the
+  guard bounds bytes, not page count. A small file with thousands of pages is still unbounded. Recorded as
+  the next real scalability gap rather than hidden behind the guard.
+- Method note, now demonstrated twice in this Log: **"the tests pass" is not evidence that the product
+  works.** The unit suite was green and completely blind to the overlay not rotating and to the real
+  clipboard path. Any future claim about this UI is cheap to check and expensive to assume.

@@ -1,8 +1,16 @@
-import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
+import { TextLayer, type PDFDocumentProxy, type PageViewport, type RenderTask } from 'pdfjs-dist';
 import type { PageRenderViewport } from './models';
+
+interface ViewportPage {
+  getViewport(parameters: { scale: number }): PageViewport;
+}
 
 export class PageRenderer {
   private task: RenderTask | null = null;
+
+  createViewport(page: ViewportPage, scale: number): PageViewport {
+    return page.getViewport({ scale });
+  }
 
   async render(
     document: PDFDocumentProxy,
@@ -12,7 +20,7 @@ export class PageRenderer {
     textLayerContainer: HTMLElement,
   ): Promise<PageRenderViewport> {
     const page = await document.getPage(pageNumber);
-    const viewport = page.getViewport({ scale, rotation: 0 });
+    const viewport = this.createViewport(page, scale);
 
     canvas.width = viewport.width;
     canvas.height = viewport.height;
