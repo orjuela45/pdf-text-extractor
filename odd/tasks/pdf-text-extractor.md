@@ -428,3 +428,79 @@ felt authorized to do. The decision escalated to the parent.
   `no-inline-comments`) would have caught both occurrences immediately, but it would also block the user
   from leaving a TODO in code, which is how both of these arrived. That trade is the user's call, not
   mine to make silently.
+
+**L26** (T7, the project's most consequential finding so far — found by the delegated writer, then
+**independently reproduced and sharpened by the parent with a controlled probe**).
+**pdf.js already solves the problem this project was created for, and our gap rule never fires in
+production.**
+- The probe generated the same word pair at nine gap sizes, once in one font and once in two fonts, and
+  printed pdf.js's raw `getTextContent()` items:
+
+  | gap | same font | two fonts |
+  | --- | --- | --- |
+  | 0em | `"palabras"` (one item) | `"pala"` \| `"bras"` |
+  | 0.03em | `"palabras"` | `"pala"` \| `"bras"` |
+  | 0.08em | `"palabras"` | `"pala"` \| `"bras"` |
+  | 0.11em | `"pala bras"` (**one item, space already inside**) | `"pala"` \| `" "` \| `"bras"` |
+  | 0.13em | `"pala bras"` | `"pala"` \| `" "` \| `"bras"` |
+  | 0.2em | `"pala bras"` | `"pala"` \| `" "` \| `"bras"` |
+  | 0.25em | `"pala bras"` | `"pala"` \| `" "` \| `"bras"` |
+  | 0.3em | `"pala bras"` | `"pala"` \| `" "` \| `"bras"` |
+  | 0.5em | `"pala bras"` | `"pala"` \| `" "` \| `"bras"` |
+
+- Reading it: below ~0.11em pdf.js merges same-font runs into one string and inserts no space; at and
+  above ~0.11em it either merges them **with the space already inside the string**, or keeps them apart and
+  emits a synthetic `" "` item. Our threshold is 0.25em. In both branches the separator is present before
+  `TextAssembler` runs, our existing-separator guard suppresses the insertion, and the positive branch of
+  the gap rule is **unreachable** through the default pipeline.
+- Consequence for T4's design: the gap rule is a **fallback**, not the mechanism. It is still correct and
+  still worth keeping — it is the guard that stops a separator being doubled, it becomes load-bearing the
+  moment fragments arrive from anywhere other than pdf.js's default text layer, and a pdf.js change could
+  make it live again. But the project must stop claiming that our geometry rule is what fixes the glued
+  words. What our layer actually contributes is the selection UX (S4), the document structure (S2, S5), the
+  quality report (T7), and the guarantee that separators are neither doubled nor lost.
+- Consequence for T7: the marginal-join band is **unreachable in production** for the same reason, since
+  every gap inside the band arrives already resolved by a separator. The writer flagged this itself and
+  correctly refused to "fix" it by widening the band to hug pdf.js's ~0.11em threshold, which would have
+  tuned the report to upstream behaviour rather than to our rule. The parent's call, recorded here: the
+  band is not shipped as unreachable behaviour. The suspicious-join signal is **redefined to a condition
+  that is reachable through the real pipeline** — an existing separator whose glyph advance disagrees with
+  the measured gap — which is the same anomaly the T4 test `never doubles a separator when the space
+  fragment is narrower than the gap` already covers, now surfaced to the user instead of silently handled.
+- Method note worth keeping: the writer reported the threshold as "between 0.10 and 0.12". The parent
+  probed at nine points including 0.11em exactly, which is what turned a range into a boundary and exposed
+  the same-font **merge** branch the writer had not separated out. **Reproducing someone else's probe with a
+  finer grid is cheap and found a second code path.**
+
+**L27** (T7 rework; correction of L26 by the delegated writer, independently verified by the parent).
+**My premise in L26 was wrong and is corrected here rather than quietly rewritten.**
+- What I claimed: the redefined signal is reachable because a separator narrower than its gap "occurs with
+  real PDFs". The writer probed further and refuted it: at normal content scale pdf.js **stretches a
+  separator to span the whole gap**, whether it is a synthetic `' '` or a real space glyph in the stream,
+  so the measured gap after a separator is exactly 0 and nothing is flagged. My stated everyday
+  reachability did **not** hold.
+- The reachable path is narrower and is a genuine pdf.js inconsistency, not a proxy: `pushWhitespace` sets
+  the separator's `width` from a **text-space** advance while `transform.x` is in **device space**, so under
+  a content scale above about 2 the width under-reports the device gap and `gap > 0` becomes observable. The
+  end-to-end fixture reproduces that with real PDF geometry (a `cm` scale of 3).
+- Rework delivered: the marginal band is **deleted, not widened** — the constant file, its logic and the
+  band-only tests are gone. The signal is restated as an observable of the assembler's own decision,
+  `!evaluated && gap > 0` (a separator already exists in the stream but does not reach the next fragment),
+  and renamed accordingly: `MarginalJoinDetector` → `SuspiciousJoinDetector`, `marginalJoins` →
+  `suspiciousJoins`. No constant is needed, so none was kept as dead weight.
+- Reachability is proven by a test that runs the **real** chain over a generated fixture and asserts the
+  exact report, plus a no-false-positive test on the ordinary separated-words fixture. The strongest single
+  piece of evidence is mutation M3 from the writer: collapsing the rule back to the old `gap > threshold`
+  shape fails **exactly and only** that end-to-end test, which is what proves the test pins the new signal
+  rather than the old logic.
+- The parent re-verified independently rather than trusting the report: 116 passed / 1 skipped,
+  `tsc` 0 on both configs, `eslint` 0, `prettier --check` clean, `vite build` 0, coverage **100% on all four
+  metrics** (214/214 statements, 90/90 branches, 59/59 functions, 206/206 lines), no comments, and a fresh
+  mutation inverting `!join.evaluated` which failed **9 tests** including the end-to-end one.
+- Honest assessment recorded for the user: this signal is **narrow**. It is kept because it is real, proven
+  and load-bearing under mutation — not because it fires often. The valuable, broadly reachable half of T7 is
+  `pagesWithoutText` plus the aggregate stats, which answers "this 200-page PDF produced 40 characters". If
+  the user wants T7 trimmed, the suspicious-join half is the piece to drop and the rest stands on its own.
+- Method note: **being corrected twice in one task is the system working.** My probe was coarser than the
+  writer's follow-up, and the writer's report was in turn checked rather than trusted. Neither of us was
+  right by authority.

@@ -129,6 +129,100 @@ describe('TextAssembler', () => {
     });
   });
 
+  describe('assembleLineWithDecisions', () => {
+    it('returns the same text as assembleLine', () => {
+      const line = lines.create([
+        fragments.create({ text: 'pone', x: 72, width: 20 }),
+        fragments.create({ text: 'algunas', x: 95, width: 35 }),
+      ]);
+
+      expect(assembler.assembleLineWithDecisions(line).text).toBe(assembler.assembleLine(line));
+    });
+
+    it('reports one join for every adjacent pair of fragments', () => {
+      const line = lines.create([
+        fragments.create({ text: 'a', x: 72, width: 10 }),
+        fragments.create({ text: 'b', x: 83, width: 10 }),
+        fragments.create({ text: 'c', x: 94, width: 10 }),
+      ]);
+
+      expect(assembler.assembleLineWithDecisions(line).joins).toHaveLength(2);
+    });
+
+    it('exposes the gap, the threshold and the separator decision', () => {
+      const line = lines.create([
+        fragments.create({ text: 'a', x: 72, width: 10, fontSize: 10 }),
+        fragments.create({ text: 'b', x: 88, width: 10, fontSize: 10 }),
+      ]);
+
+      expect(assembler.assembleLineWithDecisions(line).joins).toEqual([
+        {
+          previousText: 'a',
+          nextText: 'b',
+          gap: 6,
+          threshold: 2.5,
+          fontSize: 10,
+          evaluated: true,
+          insertedSeparator: true,
+          crossesFontBoundary: false,
+        },
+      ]);
+    });
+
+    it('compares the threshold against the larger of the two font sizes', () => {
+      const line = lines.create([
+        fragments.create({ text: 'a', x: 72, width: 10, fontSize: 8 }),
+        fragments.create({ text: 'b', x: 88, width: 10, fontSize: 12 }),
+      ]);
+      const join = assembler.assembleLineWithDecisions(line).joins[0];
+
+      expect(join?.fontSize).toBe(12);
+      expect(join?.threshold).toBe(3);
+    });
+
+    it('marks a join with an existing separator as not evaluated', () => {
+      const line = lines.create([
+        fragments.create({ text: 'hola', x: 72, width: 20 }),
+        fragments.create({ text: ' mundo', x: 100, width: 35 }),
+      ]);
+
+      expect(assembler.assembleLineWithDecisions(line).joins).toEqual([
+        {
+          previousText: 'hola',
+          nextText: ' mundo',
+          gap: 8,
+          threshold: 2.5,
+          fontSize: 10,
+          evaluated: false,
+          insertedSeparator: false,
+          crossesFontBoundary: false,
+        },
+      ]);
+    });
+
+    it('flags a join between two different fonts', () => {
+      const line = lines.create([
+        fragments.create({ text: 'a', x: 72, width: 10, fontName: 'g_d0_f1' }),
+        fragments.create({ text: 'b', x: 88, width: 10, fontName: 'g_d0_f2' }),
+      ]);
+
+      expect(assembler.assembleLineWithDecisions(line).joins[0]?.crossesFontBoundary).toBe(true);
+    });
+
+    it('drops empty fragments before pairing, so the join spans them', () => {
+      const line = lines.create([
+        fragments.create({ text: 'a', x: 72, width: 10 }),
+        fragments.create({ text: '', x: 82, width: 3 }),
+        fragments.create({ text: 'b', x: 95, width: 10 }),
+      ]);
+      const assembly = assembler.assembleLineWithDecisions(line);
+
+      expect(assembly.text).toBe('a b');
+      expect(assembly.joins).toHaveLength(1);
+      expect(assembly.joins[0]?.gap).toBe(13);
+    });
+  });
+
   describe('assembleLines', () => {
     it('joins lines with a newline and returns nothing for no lines', () => {
       const first = lines.create([fragments.create({ text: 'uno', x: 72, width: 15 })]);

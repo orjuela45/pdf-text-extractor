@@ -1,8 +1,15 @@
-export type { TextAssemblerConfig } from './assembly';
+export type { LineAssembly, TextAssemblerConfig, TextJoinDecision } from './assembly';
 export type { BlockBuilderConfig, TextBlock } from './block';
 export type { ProgressListener } from './extraction';
 export type { LineBuilderConfig } from './layout';
 export type { PageModel, PdfDocumentModel } from './page';
+export type {
+  ExtractionStats,
+  QualityReport,
+  QualityReportInput,
+  QualityReporterConfig,
+  SuspiciousJoin,
+} from './report';
 export type {
   PdfDocumentLike,
   PdfPageLike,

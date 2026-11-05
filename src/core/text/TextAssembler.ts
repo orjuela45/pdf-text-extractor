@@ -1,5 +1,12 @@
 import { SPACE_GAP_TOLERANCE_RATIO } from '../constants';
-import type { TextAssemblerConfig, TextBlock, TextFragment, TextLine } from '../models';
+import type {
+  LineAssembly,
+  TextAssemblerConfig,
+  TextBlock,
+  TextFragment,
+  TextJoinDecision,
+  TextLine,
+} from '../models';
 import { TextNormalizer } from './TextNormalizer';
 
 export class TextAssembler {
@@ -12,23 +19,34 @@ export class TextAssembler {
   }
 
   assembleLine(line: TextLine): string {
+    return this.assembleLineWithDecisions(line).text;
+  }
+
+  assembleLineWithDecisions(line: TextLine): LineAssembly {
     const fragments = line.fragments
       .map((fragment) => this.normalizer.normalizeFragment(fragment))
       .filter((fragment) => fragment.text !== '');
 
-    let result = '';
+    let text = '';
+    const joins: TextJoinDecision[] = [];
     let previous: TextFragment | undefined;
 
     for (const fragment of fragments) {
-      if (previous !== undefined && this.needsSeparator(previous, fragment)) {
-        result += ' ';
+      if (previous !== undefined) {
+        const join = this.join(previous, fragment);
+
+        if (join.insertedSeparator) {
+          text += ' ';
+        }
+
+        joins.push(join);
       }
 
-      result += fragment.text;
+      text += fragment.text;
       previous = fragment;
     }
 
-    return result.trim();
+    return { text: text.trim(), joins };
   }
 
   assembleLines(lines: readonly TextLine[]): string {
@@ -61,14 +79,22 @@ export class TextAssembler {
     return /\p{L}-$/u.test(previous) && /\p{Ll}/u.test(next.charAt(0));
   }
 
-  private needsSeparator(previous: TextFragment, next: TextFragment): boolean {
-    if (this.endsWithSpace(previous.text) || this.startsWithSpace(next.text)) {
-      return false;
-    }
-
+  private join(previous: TextFragment, next: TextFragment): TextJoinDecision {
+    const fontSize = Math.max(previous.fontSize, next.fontSize);
+    const threshold = this.ratio * fontSize;
     const gap = next.x - (previous.x + previous.width);
+    const evaluated = !this.endsWithSpace(previous.text) && !this.startsWithSpace(next.text);
 
-    return gap > this.ratio * Math.max(previous.fontSize, next.fontSize);
+    return {
+      previousText: previous.text,
+      nextText: next.text,
+      gap,
+      threshold,
+      fontSize,
+      evaluated,
+      insertedSeparator: evaluated && gap > threshold,
+      crossesFontBoundary: previous.fontName !== next.fontName,
+    };
   }
 
   private startsWithSpace(text: string): boolean {

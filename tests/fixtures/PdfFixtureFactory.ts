@@ -1,4 +1,15 @@
-import { PDFDict, PDFDocument, PDFName, StandardFonts } from 'pdf-lib';
+import {
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  StandardFonts,
+  beginText,
+  concatTransformationMatrix,
+  endText,
+  setFontAndSize,
+  setTextMatrix,
+  showText,
+} from 'pdf-lib';
 import type { PDFFont, PDFPage } from 'pdf-lib';
 
 export class PdfFixtureFactory {
@@ -72,6 +83,31 @@ end`;
     const { document, page, font } = await this.createPage();
     this.draw(page, font, 'extra-', 72, 700, 12);
     this.draw(page, font, 'ordinario', 72, 686, 12);
+    return await document.save();
+  }
+
+  async separatorNarrowerThanGap(): Promise<Uint8Array> {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const page = document.addPage([612, 792]);
+    const left = await document.embedStandardFont(StandardFonts.Helvetica);
+    const right = await document.embedStandardFont(StandardFonts.TimesRoman);
+    const leftKey = page.node.newFontDictionary(left.name, left.ref);
+    const rightKey = page.node.newFontDictionary(right.name, right.ref);
+    const scale = 3;
+    const leftWidth = left.widthOfTextAtSize('pala', 12);
+
+    page.pushOperators(
+      concatTransformationMatrix(scale, 0, 0, scale, 0, 0),
+      beginText(),
+      setFontAndSize(leftKey, 12),
+      setTextMatrix(1, 0, 0, 1, 72 / scale, 700 / scale),
+      showText(left.encodeText('pala')),
+      setFontAndSize(rightKey, 12),
+      setTextMatrix(1, 0, 0, 1, 72 / scale + leftWidth + 2, 700 / scale),
+      showText(right.encodeText('bras')),
+      endText(),
+    );
+
     return await document.save();
   }
 
