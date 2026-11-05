@@ -282,3 +282,41 @@ FONT_SIZE_TOLERANCE_RATIO}.ts`, `assembleBlock` added to `TextAssembler`, hyphen
   `vite build` 0, `src/core` at 100% branches with `PdfDocumentLoader.ts` (0%, deferred to T6) the only
   uncovered file.
 - Remaining half of T5: headings and sections (`SectionBuilder`), which is what S5 needs for the outline.
+
+**L15** (T5, second half — sections; evidence): files `src/core/layout/SectionBuilder.ts` and its test,
+`src/core/models/section.ts`,
+`src/core/constants/{HEADING_FONT_SIZE_RATIO,NUMBERED_HEADING_PATTERN,LABELLED_HEADING_PATTERN}.ts`,
+both barrels, and `BlockFactory.createWithText`.
+- Heading detection has two signals: the block's dominant font size exceeding the body size by 15%, or a
+  numbering/label pattern. The body size is the mode of the **line** count per font size, not the block
+  count, so one multi-line heading cannot outweigh the body text; ties break toward the smaller size.
+- The numbered pattern is `/^(\d+(\.\d+)+|\d+[.)])\s/`. The obvious `/^\d+[.)]?\s/` was **rejected**:
+  making the separator optional turns *"2020 fue un anio dificil."* into a heading. Requiring either a
+  dotted multi-level number or a trailing separator keeps that sentence out while still accepting
+  `1. Introduccion`, `1.2 Alcance`, `3) Algo` and `1.2.3 Detalle`. A test pins the rejection.
+- Levels are the rank of the heading's font size among all heading sizes, descending — a single source of
+  truth, not mixed with numbering depth. **Numbering depth is not used for nesting yet.**
+- Known limitation, recorded rather than hidden: **bold-only headings cannot be detected.** pdf.js's text
+  layer exposes a font family per generated font handle and no weight, so a heading that differs from body
+  text only by weight is invisible to this heuristic. T6's real corpus will show what that costs.
+- Known false-positive risk: *"10.000 unidades fueron cargadas."* matches the dotted-number alternative.
+  Accepted for now; T7's quality report is where it should surface.
+- Two tests were wrong on first write and were fixed **before** implementing: one asserted a value against
+  itself (`expect(x).toBe(x)`), and another built a document where headings outnumbered body lines, so the
+  statistical body-size mode selected the *heading* size. Both were caught by working the numbers by hand,
+  not by the test runner.
+- Coverage finding, third occurrence of the same class: `SectionBuilder.ts:45` was the `?? 1` fallback on
+  `levels.get(block.fontSize)`, unreachable because the map is built from exactly the heading sizes. Rebuilt
+  so the level map is keyed by **block** and the `undefined` check *is* the "is this a heading?" test, which
+  made the branch reachable both ways and deleted the fallback. Keying the map by font size instead would
+  have been a real bug: a numbered heading at body size would have pulled every body block at that size
+  into the heading set.
+- Mutations re-run on the rebuilt internals, since changing them invalidates earlier results. **Six defects,
+  all caught:** disabling the size rule → 7 tests; disabling the pattern rules → 2; flipping the level order
+  → 1; dropping the smaller-size tie-break → 2; giving every heading level 1 → 1; treating every block as a
+  heading → 10.
+- One mutation first reported NOT APPLIED because Prettier had rewrapped the `.sort(` call across two lines,
+  so the target string no longer existed. Re-run against the wrapped text, it is caught. Worth remembering:
+  **a mutation that cannot be applied is not a mutation that was survived.**
+- Evidence: `vitest run` 74/74, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean, `vite build` 0,
+  `src/core` at 100% branches with `PdfDocumentLoader.ts` (0%, deferred to T6) the only uncovered file.

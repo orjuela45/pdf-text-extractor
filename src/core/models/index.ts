@@ -14,4 +14,5 @@ export type {
   ViewportLike,
   ViewportParameters,
 } from './pdfjs';
+export type { SectionBuilderConfig, TextSection } from './section';
 export type { TextDirection, TextFragment, TextLine } from './text';

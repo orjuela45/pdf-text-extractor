@@ -1,0 +1,1 @@
+export const HEADING_FONT_SIZE_RATIO = 0.15;
