@@ -404,3 +404,27 @@ felt authorized to do. The decision escalated to the parent.
   (duplicate module declarations the moment `@types/node` is added) is gone with it.
 - Lesson recorded: "the types are restricted so nothing leaks" is a hypothesis, not an observation, and it
   took one four-line file to falsify. Probe the property you are about to claim.
+
+**L25** (user TODO in `TextContentMapper`, found by grep rather than reported by the user):
+*"no es mejor usar esto como un switch"*.
+- Verdict: **viable and applied, but labelled honestly as a lateral move, not a behavioural improvement.**
+  The `if`-chain and the `switch` make the same number of decisions and are observably identical. The
+  `default` branch has to stay reachable, and it already is: the existing "falls back to left-to-right"
+  test pins it, confirmed by mutation — flipping `default` to `'rtl'` fails exactly that test.
+- The small real gain: the method now reads as a mapping over a closed set, and a fourth direction becomes
+  one more `case` instead of a restructured `if`-chain.
+- Alternative worth knowing about if the mapping should become *data* rather than control flow: a `Record`
+  constant in `src/core/constants/` plus `return TEXT_DIRECTIONS[dir] ?? 'ltr'`. Not adopted, because it
+  adds a constant file and a `models` → `constants` type dependency for a three-entry table.
+- **Process finding that matters more than the fix.** This comment had already been **committed**: `git add
+  -A` swept it into `1608428` and I never noticed, because after the refactor I checked formatting, lint and
+  tests but never grepped the source for comments. A user TODO then sat in the repository for several
+  commits. This is the **second** occurrence — the LineBuilder TODO was the first.
+- Standing rule adopted from here on, and the reason it is written down: **the convention "zero comments in
+  source" is only verifiable by looking.** Grep `src/` and `tests/` for comment tokens as part of the
+  pre-commit routine, every time, not just when something feels off.
+- The comment is removed: it is resolved, and the convention forbids comments in source.
+- Not adopted, offered to the user instead: a mechanical guard (ESLint's `no-warning-comments` plus
+  `no-inline-comments`) would have caught both occurrences immediately, but it would also block the user
+  from leaving a TODO in code, which is how both of these arrived. That trade is the user's call, not
+  mine to make silently.

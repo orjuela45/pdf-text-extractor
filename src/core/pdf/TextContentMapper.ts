@@ -38,16 +38,14 @@ export class TextContentMapper {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
   }
 
-  // TODO: no es mejor usar esto como un switch
   private direction(dir: string): TextDirection {
-    if (dir === 'rtl') {
-      return 'rtl';
+    switch (dir) {
+      case 'rtl':
+        return 'rtl';
+      case 'ttb':
+        return 'ttb';
+      default:
+        return 'ltr';
     }
-
-    if (dir === 'ttb') {
-      return 'ttb';
-    }
-
-    return 'ltr';
   }
 }
