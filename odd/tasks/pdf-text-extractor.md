@@ -209,3 +209,36 @@ clases tipo OOP, esto no solo para este proyecto sino en general"*
 - Commit 2 — `fix(core): reset the dominant font size between lines`, carrying the review TODO fix, its
   regression test, and this document.
 - Push has **not** been performed for either commit; it remains a separate decision.
+
+**L13** (T4 implemented and verified — awaiting the commit decision): files
+`src/core/text/TextNormalizer.ts`, `src/core/text/TextAssembler.ts` and their tests, plus
+`src/core/models/assembly.ts`, `src/core/constants/SPACE_GAP_TOLERANCE_RATIO.ts`,
+`src/core/constants/UNICODE_REPLACEMENTS.ts`, the two barrels, and `src/test/LineFactory.ts`.
+- The gap rule inserts a separator when `next.x - (previous.x + previous.width)` exceeds
+  `ratio x max(fontSize)`, with `SPACE_GAP_TOLERANCE_RATIO = 0.25`. A separator that already exists is
+  never doubled. Fragments whose normalized text is empty are dropped from the chain, so the gap is
+  measured **across** them instead of stopping at them.
+- Normalization is a targeted map, not blanket NFKC: ligatures expand, typographic and non-breaking
+  spaces fold onto a plain space, and invisible characters (soft hyphen, zero-width, BOM) are removed.
+  `½`, `①`, `2³`, `¿`, `—` and `«»` are deliberately left alone, and a test pins that so nobody
+  "upgrades" this to NFKC later without noticing what it would rewrite.
+- Mutation check, four defects injected one at a time:
+  - removing the existing-separator guard → **caught by nothing**;
+  - treating the deletion entries as no-ops → 1 test;
+  - measuring the gap from `x` instead of `x + width` → 4 tests;
+  - keeping empty fragments in the chain → 1 test.
+- Finding, and the whole reason the mutation check exists: the two original "never doubles a
+  separator" tests passed **for the wrong reason.** The space fragment had width 3, so the gap from its
+  end was already 0 and the gap rule inserted nothing — the guard was never exercised by them. Both were
+  rewritten into a space fragment *narrower* than the real gap and a fragment that *leads* with a space,
+  which exercise each side of the guard. Re-running the mutation now fails both.
+- The guard is genuinely load-bearing, not defensive decoration: a space glyph whose advance is
+  narrower than the visual gap is ordinary in real PDFs.
+- Coverage finding: `TextAssembler.ts` had one uncovered branch, the defensive
+  `fragment === undefined` guard that existed only to satisfy `noUncheckedIndexedAccess`. Rather than
+  write a test for unreachable code, the loop was restructured to carry `previous` in a local and
+  iterate with `for...of`, which deleted the dead branch outright. `src/core` is now at 100% branches.
+- Evidence: `vitest run` 44/44, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean,
+  `vite build` 0, `src/core` 100% branches with `PdfDocumentLoader.ts` (0%, deferred to T6) the only
+  uncovered file.
+- **Not committed**: the standing instruction is to see the code before it is committed.

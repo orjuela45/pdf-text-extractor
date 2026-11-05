@@ -1,0 +1,1 @@
+export const SPACE_GAP_TOLERANCE_RATIO = 0.25;

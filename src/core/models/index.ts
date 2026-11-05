@@ -1,3 +1,4 @@
+export type { TextAssemblerConfig } from './assembly';
 export type { ProgressListener } from './extraction';
 export type { LineBuilderConfig } from './layout';
 export type { PageModel, PdfDocumentModel } from './page';
