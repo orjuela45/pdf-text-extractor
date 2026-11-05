@@ -1,0 +1,1 @@
+export { PDF_RENDER_SCALE } from './PDF_RENDER_SCALE';

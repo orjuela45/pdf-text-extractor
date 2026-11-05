@@ -8,3 +8,46 @@
 :root {
   color-scheme: light dark;
 }
+
+.pdf-page {
+  --total-scale-factor: 1;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+}
+
+.textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+  text-align: initial;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 1;
+}
+
+.textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+  user-select: text;
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--total-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x));
+}
+
+.textLayer .markedContent {
+  display: contents;
+}

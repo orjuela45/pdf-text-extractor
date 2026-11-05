@@ -504,3 +504,47 @@ production.**
 - Method note: **being corrected twice in one task is the system working.** My probe was coarser than the
   writer's follow-up, and the writer's report was in turn checked rather than trusted. Neither of us was
   right by authority.
+
+**L28** (T8 + T9 closed, evidence): the application now works — drop or pick a PDF, see it rendered, click a
+paragraph to get its corrected text on the clipboard.
+- Logic classes in `src/ui/`: `CoordinateMapper`, `BlockHitTester`, `ClipboardWriter`, `ExtractionSession`,
+  `PdfDocumentSession`, `PageRenderer`. Thin components: `App`, `Dropzone`, `PdfViewer`, `PdfPage`,
+  `PdfPageView`, `ReportPanel`, `CopyFeedback`. UI interfaces in `src/ui/models/` (one concern per file plus
+  a barrel), UI constants one per file in `src/ui/constants/`.
+- Evidence: `vitest run` **148 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0,
+  `prettier --check` clean, `vite build` 0, `src/core` still at 100% on all four metrics, no comments.
+- The parent re-verified independently with a mutation the writer had not used — the sign of `y` in
+  `CoordinateMapper.toUserSpace` — which failed three tests including
+  `copies the corrected paragraph under the click through the viewer`. That is the whole path from a click to
+  the clipboard, so the end-to-end wiring is load-bearing, not just the units.
+- **Deliberate, reversible deviation from L10, which the user may want changed.** L10 forbids loose
+  functions and wants classes. React function components and hooks are loose functions, and React class
+  components are legacy. The split taken: components stay thin (markup, props, event wiring), every piece of
+  real logic is a class, and the single hook `usePdfDocument` is glue that delegates to `PdfDocumentSession`.
+  This honours the intent of L10 — logic does not live scattered in functions — while refusing to write
+  legacy React. Flagged for the user rather than settled silently.
+- Coordinate decision: `CoordinateMapper` is built on the pdf.js viewport transform with the exact
+  `applyTransform` / `applyInverseTransform` formulas rather than calling `PageViewport` methods, so it stays
+  unit-testable with a plain array and works in both directions. The viewer asks for `rotation: 0`, matching
+  `PdfTextExtractor`: rendering with the page's own rotation would make the overlay look right while copying
+  the wrong block.
+- Hit-testing runs on core `TextBlock` boxes in user space, never on DOM text nodes or
+  `window.getSelection()`. A non-empty native selection only suppresses our copy, so native selection and
+  click-to-copy coexist.
+- The text layer uses pdf.js's exported `TextLayer` with a minimal local `.textLayer` CSS instead of
+  importing `pdf_viewer.css` wholesale, which would drag many global rules into a Tailwind app.
+- `PageRenderer` wraps `page.render` with a `cancel()`, because React StrictMode double-invokes effects in
+  development and pdf.js refuses concurrent renders on one canvas.
+- Clipboard: `navigator.clipboard.writeText` first; if it is unavailable or rejects, the text is still
+  delivered through a visible, pre-selected read-only `textarea`. `ClipboardLike` is a one-method interface
+  so both paths are testable without a browser, and the fallback is a real fallback rather than a silent
+  failure. Both paths have tests.
+- **Honest gap, stated plainly rather than papered over: none of this was verified in a real browser.** No
+  Playwright or Puppeteer is installed and none was added. Canvas drawing, the pdf.js `TextLayer` layout and
+  the real `navigator.clipboard` need a real gesture and a secure context, so they are unverified outside
+  tests. Treat "it builds and the component tests pass" as necessary but not sufficient for the UI. This is
+  the single largest open risk in the project.
+- Limitation carried forward to T11: pages declaring a rotation are extracted and rendered at `rotation: 0`
+  so the core contract holds, so a rotated PDF displays sideways. Known since L7, still unresolved.
+- The Vite chunk-size warning is pre-existing pdf.js weight, not new in T8/T9. No new runtime dependency and
+  no network call was added; the PDF never leaves the browser.
