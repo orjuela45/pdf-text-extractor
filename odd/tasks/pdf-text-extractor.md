@@ -320,3 +320,87 @@ both barrels, and `BlockFactory.createWithText`.
   **a mutation that cannot be applied is not a mutation that was survived.**
 - Evidence: `vitest run` 74/74, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean, `vite build` 0,
   `src/core` at 100% branches with `PdfDocumentLoader.ts` (0%, deferred to T6) the only uncovered file.
+
+**L16** (T6 closed, evidence — delivered by a delegated writer, then independently verified by the
+parent): the inline corpus plus end-to-end tests now exist, driven by the **real** pipeline
+(`PdfDocumentLoader` → `PdfTextExtractor` → `LineBuilder` → `BlockBuilder` → `TextAssembler` →
+`SectionBuilder`) over eight generated fixtures, a unit test for worker injection, and a drop-in test for
+a user-supplied real corpus.
+- Files: `tests/fixtures/PdfFixtureFactory.ts`, `tests/extraction.test.ts`,
+  `tests/PdfDocumentLoader.test.ts`, `tests/realCorpus.test.ts`,
+  `tests/support/{ExtractionPipeline,ExtractionResult}.ts`, `tests/fixtures/real/.gitkeep`,
+  `src/core/pdf/PdfDocumentLoader.ts`, `vite.config.ts`, `tsconfig.json`, `tsconfig.tests.json`,
+  `package.json`.
+- Evidence: `vitest run` **85 passed / 1 skipped** (the skip is the empty real corpus),
+  `tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tests.json --noEmit` 0, `eslint .` 0,
+  `prettier --check .` clean, `vite build` 0, and coverage now **100% on all four metrics**
+  (185/185 statements, 84/84 branches, 53/53 functions, 178/178 lines) with
+  `PdfDocumentLoader.ts` no longer at 0%. This is the first time the whole of `src/core` is covered.
+- The parent did **not** accept the writer's report at face value. Independently re-run: all six
+  acceptance commands, a structural check that `tests/` contains classes and no loose functions, a grep
+  proving no comments were introduced, and a fresh mutation forcing `TextAssembler.needsSeparator` to
+  `true`, which failed the e2e test `keeps two runs glued when there is no gap between them`. That last
+  one is the evidence that the corpus exercises real code rather than asserting on itself.
+
+**L17** (T6) — worker source injection. `PdfDocumentLoader` now takes `workerSrc` with the production
+`?url` value as its default, so the shipped bundle is unchanged. Vitest's Node environment resolves `?url`
+to `/node_modules/...`, a root-relative dev path that Node's fake worker cannot `import()`. Tests pass
+`createRequire(import.meta.url).resolve('pdfjs-dist/build/pdf.worker.min.mjs')`, an absolute path Node
+imports directly. That is the whole fix; no production branch changed.
+
+**L18** (T6) — deterministic corpus. Every fixture uses `PDFDocument.create({ updateMetadata: false })`.
+The default stamps `CreationDate`/`ModDate` from `new Date()`, which would make the bytes differ between
+runs. A test asserts byte-identical output across two calls.
+
+**L19** (T6) — pdf.js normalizes before we do. `getTextContent()` defaults to
+`disableNormalization: false`, so pdf.js expands U+FB00–U+FB04 and folds NBSP **itself**, before
+`TextContentMapper` sees anything. The `TextNormalizer` ligature/NBSP map is therefore a robustness layer
+for other sources and cannot be exercised through this e2e. Recorded so nobody later assumes the e2e pins
+that map — the T4 unit tests still do. Exercising it end to end would need `disableNormalization: true` in
+`PdfTextExtractor`, which would change production behaviour.
+
+**L20** (T6) — pdf.js spacing side effects, and why one fixture uses two fonts. For a large horizontal gap
+pdf.js emits a synthetic `' '` fragment and merges same-font adjacent runs. So the "separated words"
+fixture is already spaced *upstream*, and the rule actually under test there is not ours. The "glued runs"
+fixture therefore draws the two runs in different standard fonts (Helvetica / Times), which stops pdf.js
+merging them, so the assembler's no-gap rule is genuinely exercised. Confirmed by mutation: forcing
+`needsSeparator` to `true` fails that test.
+
+**L21** (T6) — ligature fixture without a custom font. pdf-lib's standard fonts are WinAnsi and throw on
+U+FB01/U+FB02; embedding a TTF would need `@pdf-lib/fontkit`, which is not a dependency. The fixture draws
+placeholder bytes (`#`, `~`) in a Helvetica run and, after `font.embed()`, attaches a hand-written
+`ToUnicode` CMap mapping `0x23 → U+FB01` and `0x7E → U+FB02`. pdf.js then extracts real ligature code
+points without any font file.
+
+**L22** (T6) — real corpus is a drop-in, never committed. `tests/fixtures/real/.gitkeep` keeps the
+directory tracked; no PDF is downloaded or committed, so there is nothing to license. The test scans at
+collection time and registers a skip with an explicit "drop PDFs here" message when empty, so the suite
+never fails on an empty corpus. **Real-world PDFs remain the one thing generated fixtures cannot replace,
+and this is the hook for them.**
+
+**L23** (T6) — the generated corpus is pinned to pdfjs-dist 6.5.438 behaviour. Several e2e expectations
+(synthetic space fragments, run merging) follow from pdf.js's content-stream handling, not from the PDF
+spec, so a minor pdf.js upgrade may legitimately change them. When that happens, re-derive the expectation
+from the observed output rather than assuming our code regressed.
+
+**L24** (T6, parent finding — a false claim I caught by probing). The writer left a hand-written ambient
+shim, `tests/node.d.ts`, because `@types/node` was not installed and installing it was outside what it
+felt authorized to do. The decision escalated to the parent.
+- First attempt: install `@types/node@26.6.6` and delete the shim. Typecheck passed, and I was about to
+  record "no global pollution, because `tsconfig.json` restricts `types` to `vite/client`".
+- **That claim was false, and a probe proved it.** Writing `const x: number = process.pid` in a temporary
+  `src/__probe.ts` typechecked **without error**. Once any `node:`-prefixed import enters the program,
+  `@types/node`'s global declarations join it and become visible across the whole project. A browser app
+  that silently compiles `process.env.X` is a real defect waiting to happen.
+- Root cause: a single `tsconfig.json` covering both `src/` and `tests/`. Fixed by splitting, which is the
+  correct answer rather than a workaround:
+  - `tsconfig.json` now includes only `src` and keeps `types: ["vite/client"]`;
+  - `tsconfig.tests.json` extends it, includes `tests` and `vite.config.ts`, and sets
+    `types: ["node", "vite/client"]`;
+  - `typecheck` runs both configs in sequence, and `build` typechecks the app config only.
+  No project references and no `composite`, so the `tsc -b` complications avoided earlier stay avoided.
+- Verified with **two** probes, not one: `process.pid` in `src/` now fails with TS2591, and `import {
+  readdirSync } from 'node:fs'` in `tests/` still typechecks. The shim is deleted; the landmine it carried
+  (duplicate module declarations the moment `@types/node` is added) is gone with it.
+- Lesson recorded: "the types are restricted so nothing leaks" is a hypothesis, not an observation, and it
+  took one four-line file to falsify. Probe the property you are about to claim.

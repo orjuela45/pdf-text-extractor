@@ -2,8 +2,11 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 export class PdfDocumentLoader {
-  constructor() {
-    GlobalWorkerOptions.workerSrc = workerUrl;
+  private readonly workerSrc: string;
+
+  constructor(workerSrc: string = workerUrl) {
+    this.workerSrc = workerSrc;
+    GlobalWorkerOptions.workerSrc = this.workerSrc;
   }
 
   async load(data: ArrayBuffer): Promise<PDFDocumentProxy> {

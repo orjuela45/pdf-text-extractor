@@ -1,0 +1,116 @@
+import { PDFDict, PDFDocument, PDFName, StandardFonts } from 'pdf-lib';
+import type { PDFFont, PDFPage } from 'pdf-lib';
+
+export class PdfFixtureFactory {
+  async separatedWords(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, 'palabras', 72, 700, 12);
+    this.draw(page, font, 'pegadas', 148, 700, 12);
+    return await document.save();
+  }
+
+  async gluedRuns(): Promise<Uint8Array> {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const page = document.addPage([612, 792]);
+    const left = await document.embedStandardFont(StandardFonts.Helvetica);
+    const right = await document.embedStandardFont(StandardFonts.TimesRoman);
+    const firstWidth = left.widthOfTextAtSize('pala', 12);
+    this.draw(page, left, 'pala', 72, 700, 12);
+    this.draw(page, right, 'bras', 72 + firstWidth, 700, 12);
+    return await document.save();
+  }
+
+  async ligatureAndNbsp(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, 'o#cina\u00a0re~ejo', 72, 700, 12);
+    await font.embed();
+
+    const cmap = `/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+2 beginbfchar
+<23> <FB01>
+<7E> <FB02>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end`;
+
+    const toUnicode = document.context.register(document.context.flateStream(cmap));
+    document.context.lookup(font.ref, PDFDict).set(PDFName.of('ToUnicode'), toUnicode);
+
+    return await document.save();
+  }
+
+  async paragraphs(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, 'Primera linea indentada', 90, 700, 12);
+    this.draw(page, font, 'segunda linea del parrafo', 72, 686, 12);
+    this.draw(page, font, 'Segundo parrafo', 72, 650, 12);
+    return await document.save();
+  }
+
+  async headings(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, '1. Introduccion', 72, 720, 18);
+    this.draw(page, font, 'Texto de introduccion uno', 72, 690, 12);
+    this.draw(page, font, 'Texto de introduccion dos', 72, 676, 12);
+    this.draw(page, font, 'Metodos', 72, 640, 14);
+    this.draw(page, font, 'Texto de metodos uno', 72, 610, 12);
+    this.draw(page, font, 'Texto de metodos dos', 72, 596, 12);
+    return await document.save();
+  }
+
+  async hyphenatedBreak(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, 'extra-', 72, 700, 12);
+    this.draw(page, font, 'ordinario', 72, 686, 12);
+    return await document.save();
+  }
+
+  async noTextLayer(): Promise<Uint8Array> {
+    const { document, page } = await this.createPage();
+    page.drawRectangle({ x: 72, y: 700, width: 200, height: 40 });
+    return await document.save();
+  }
+
+  async threePages(): Promise<Uint8Array> {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const font = await document.embedStandardFont(StandardFonts.Helvetica);
+
+    const lines = ['primera pagina', 'segunda pagina', 'tercera pagina'];
+
+    for (const text of lines) {
+      const page = document.addPage([612, 792]);
+      this.draw(page, font, text, 72, 700, 12);
+    }
+
+    return await document.save();
+  }
+
+  private async createPage(): Promise<{ document: PDFDocument; page: PDFPage; font: PDFFont }> {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const page = document.addPage([612, 792]);
+    const font = await document.embedStandardFont(StandardFonts.Helvetica);
+
+    return { document, page, font };
+  }
+
+  private draw(
+    page: PDFPage,
+    font: PDFFont,
+    text: string,
+    x: number,
+    y: number,
+    size: number,
+  ): void {
+    page.drawText(text, { x, y, size, font });
+  }
+}
