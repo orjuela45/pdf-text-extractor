@@ -591,3 +591,27 @@ paragraph to get its corrected text on the clipboard.
 - Method note, now demonstrated twice in this Log: **"the tests pass" is not evidence that the product
   works.** The unit suite was green and completely blind to the overlay not rotating and to the real
   clipboard path. Any future claim about this UI is cheap to check and expensive to assume.
+
+**L30** (T12 closed): delivery configuration and documentation.
+- `netlify.toml`: build command and publish directory, an SPA redirect, security headers including a
+  Content Security Policy, immutable caching for hashed `/assets/*`, and no-cache for `index.html`.
+- **The CSP is deliberately mirrored into Vite's `preview.headers`, so the real-browser check exercises it.**
+  A security policy that only exists on the host is a policy nobody verifies locally, and an unverified CSP is
+  a liability: it would either break the deployed app or be quietly useless. `pnpm test:browser` passes with
+  the header applied, which verifies it does not break the app locally. The real deploy remains the last
+  check, and `docs/netlify-deploy.md` tells the user to watch the console for CSP errors on that first deploy.
+- `README.md` (English, repository-facing) is upfront about what pdf.js already does and what this layer
+  actually contributes, and lists the known limitations rather than burying them.
+- `docs/netlify-deploy.md` is in **Spanish**, an explicit exception to the English-artifact default, because
+  it is a step-by-step guide for the user to run on his own account with his own domain. It keeps the
+  portfolio site untouched: a new Netlify site plus a `pdf.<domain>` subdomain, with an explicit warning to
+  stop and ask before touching root DNS records.
+- Also fixed here: `vite.config.ts` and `eslint.config.js` still carried comments written in T1, before the
+  no-comments convention existed. The pre-commit grep had been scoped to `src/` and `tests/` and never looked
+  at the root config files, so it could not have caught them. The grep now covers the root configs too.
+- Grep false positive worth recording: `'src/**/*.{ts,tsx}'` contains `/*` inside a glob string, so a naive
+  search for comment tokens flags configuration. The check was tightened to match comment tokens at the start
+  of a line or after code, which is what actually matters.
+- Evidence: `vitest run` 182 passed / 1 skipped, `tsc` 0, `eslint` 0, `prettier --check` clean,
+  `vite build` 0, `pnpm test:browser` 7/7 PASS with the CSP applied, no comments in any `.ts`, `.tsx` or `.js`
+  including the root configs.
