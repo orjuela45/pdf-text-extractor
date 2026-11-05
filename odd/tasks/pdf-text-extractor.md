@@ -35,6 +35,11 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T11 | Error and edge states: encrypted PDF, no text layer, oversized file, worker failure, responsive + keyboard/a11y | S1, S8 | F3 Robustness | inline |
 | T12 | Delivery: `netlify.toml`, production build check, custom-domain deploy guide for the existing portfolio domain | S7 | F4 Delivery | inline |
 | T13 | Verification pass: verdict per S# on S1-S8, full suite, coverage of `src/core` | all | F4 Delivery | independent verify |
+| T14 | **Blocker.** Reading order for multi-column pages: cluster lines by column before/within baselines so two aligned columns stop interleaving. Regression probe exists (left-column click must not copy the right column) | S2, S4 | F5 Fixes | inline or writer, test-first |
+| T15 | **Blocker.** Dehyphenation must distinguish a hyphenated line break from a real compound hyphen, so `franco-` + `aleman` yields `franco-aleman` and not `francoaleman` | S3 | F5 Fixes | inline or writer, test-first |
+| T16 | Fix the hollow test in `tests/PdfDocumentLoader.test.ts` (asserts non-emptiness instead of the bundled worker URL) and pin the two surviving boundary mutations: `BlockBuilder` gap `>` and `BlockHitTester` bottom edge | S3 | F5 Fixes | inline |
+| T17 | Verify the security headers for real: the browser check runs its own static server and never applies the CSP, so either make it apply them or record the headers as verified only on deploy | S7 | F5 Fixes | inline |
+| T18 | Correct `README.md`: it states the suspicious-join signal needs a content scale "above about 2" and it fires near 1.1; also state plainly that the coverage number covers `src/core` only and excludes `src/ui` | S3, S8 | F5 Fixes | inline |
 
 ## Log
 
@@ -660,3 +665,21 @@ claim of mine. This entry exists to record them, not to soften them.**)
   not applied**, because applying them requires a fix round and the honest state of the tree right now is
   "verified, with two blockers and one false claim corrected". Handing a broken behaviour a green test
   would be worse than leaving the defects named.
+
+**L32** (user instruction, verbatim): *"dejemos ese de lado entonces. escribe las nuevas tareas a contianucion
+para corregir los errores y levanta el proyecto para ver como va"*
+- `unpdf` is set aside. Assessed and **not adopted**, with the reasoning recorded rather than dropped: it
+  does expose pdf.js's own `PDFDocumentProxy` through `getDocumentProxy` (verified in the installed package,
+  whose types re-export `types/src/display/api.js`), so the whole geometry layer would work unchanged. It
+  was rejected anyway because it bundles PDF.js **4.0.189** against our **6.5.438** — which would invalidate
+  the measured synthetic-space finding in L26 and every corpus expectation in L23 — and because solving our
+  Node and test worker plumbing is a problem already paid for in L16 and L24 and verified with 7/7 browser
+  checks. Its design target is serverless and nodeless runtimes, where the browser worker we actually want is
+  absent. **Revisit it if a backend is ever added** (OCR or batch extraction), which is the deferred case in
+  L2, and adopt it there with `definePDFJSModule(pdfjs-dist)` so our measured pdf.js version is kept.
+- The blockers from L31 become tasks T14–T18 in the table above, in the order they should be fixed. T14 and
+  T15 are the two real defects; T16–T18 are the false claim, the hollow test and surviving boundary
+  mutations, and the README correction.
+- Priority stated for the user: **T14 and T15 are more urgent than any decision about tooling.** They are
+  defects in our own grouping and hyphen rules, and no loader swap touches them.
+- The development server is started so the user can look at the application before the fixes land.
