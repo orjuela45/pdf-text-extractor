@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { BlockFactory } from '../../test/BlockFactory';
 import { FragmentFactory } from '../../test/FragmentFactory';
 import { LineFactory } from '../../test/LineFactory';
 import { TextAssembler } from './TextAssembler';
@@ -7,6 +8,7 @@ import { TextAssembler } from './TextAssembler';
 const assembler = new TextAssembler();
 const fragments = new FragmentFactory();
 const lines = new LineFactory();
+const blocks = new BlockFactory();
 
 describe('TextAssembler', () => {
   describe('assembleLine', () => {
@@ -134,6 +136,58 @@ describe('TextAssembler', () => {
 
       expect(assembler.assembleLines([first, second])).toBe('uno\ndos');
       expect(assembler.assembleLines([])).toBe('');
+    });
+  });
+
+  describe('assembleBlock', () => {
+    it('returns an empty string for a block without lines', () => {
+      expect(assembler.assembleBlock(blocks.create([]))).toBe('');
+    });
+
+    it('joins the lines of a paragraph with a space', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'primera', x: 72, width: 35 })]),
+        lines.create([fragments.create({ text: 'segunda', x: 72, y: 688, width: 35 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('primera segunda');
+    });
+
+    it('welds a word broken across two lines and drops its hyphen', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'co-', x: 72, width: 15 })]),
+        lines.create([fragments.create({ text: 'operar', x: 72, y: 688, width: 35 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('cooperar');
+    });
+
+    it('keeps the hyphen when the next line starts a new sentence', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'fin-', x: 72, width: 15 })]),
+        lines.create([fragments.create({ text: 'Ultima', x: 72, y: 688, width: 35 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('fin- Ultima');
+    });
+
+    it('keeps a standalone dash that is not attached to a word', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'dijo -', x: 72, width: 25 })]),
+        lines.create([fragments.create({ text: 'y siguio', x: 72, y: 688, width: 40 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('dijo - y siguio');
+    });
+
+    it('skips lines that assemble to nothing', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'uno', x: 72, width: 15 })]),
+        lines.create([]),
+        lines.create([fragments.create({ text: 'dos', x: 72, y: 676, width: 15 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('uno dos');
     });
   });
 });

@@ -1,0 +1,1 @@
+export const PARAGRAPH_LINE_GAP_RATIO = 1.6;

@@ -1,0 +1,1 @@
+export const INDENT_TOLERANCE_RATIO = 0.5;

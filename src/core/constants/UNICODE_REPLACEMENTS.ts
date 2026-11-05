@@ -6,6 +6,8 @@ export const UNICODE_REPLACEMENTS = new Map<string, string>([
   ['\ufb04', 'ffl'],
   ['\ufb05', 'ft'],
   ['\ufb06', 'st'],
+  ['\u2010', '-'],
+  ['\u2011', '-'],
   ['\u00a0', ' '],
   ['\u1680', ' '],
   ['\u2000', ' '],

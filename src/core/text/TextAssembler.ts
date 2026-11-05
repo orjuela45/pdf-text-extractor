@@ -1,5 +1,5 @@
 import { SPACE_GAP_TOLERANCE_RATIO } from '../constants';
-import type { TextAssemblerConfig, TextFragment, TextLine } from '../models';
+import type { TextAssemblerConfig, TextBlock, TextFragment, TextLine } from '../models';
 import { TextNormalizer } from './TextNormalizer';
 
 export class TextAssembler {
@@ -33,6 +33,32 @@ export class TextAssembler {
 
   assembleLines(lines: readonly TextLine[]): string {
     return lines.map((line) => this.assembleLine(line)).join('\n');
+  }
+
+  assembleBlock(block: TextBlock): string {
+    let result = '';
+
+    for (const line of block.lines) {
+      const text = this.assembleLine(line);
+
+      if (text === '') {
+        continue;
+      }
+
+      if (result === '') {
+        result = text;
+      } else if (this.isHyphenatedBreak(result, text)) {
+        result = `${result.slice(0, -1)}${text}`;
+      } else {
+        result = `${result} ${text}`;
+      }
+    }
+
+    return result;
+  }
+
+  private isHyphenatedBreak(previous: string, next: string): boolean {
+    return /\p{L}-$/u.test(previous) && /\p{Ll}/u.test(next.charAt(0));
   }
 
   private needsSeparator(previous: TextFragment, next: TextFragment): boolean {

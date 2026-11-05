@@ -1,12 +1,21 @@
 import type { TextFragment, TextLine } from '../core/models';
+import { FragmentFactory } from './FragmentFactory';
 
 export class LineFactory {
-  create(fragments: readonly TextFragment[] = [], overrides: Partial<TextLine> = {}): TextLine {
+  private readonly fragments = new FragmentFactory();
+
+  create(lineFragments: readonly TextFragment[] = [], overrides: Partial<TextLine> = {}): TextLine {
     return {
-      fragments,
-      baseline: fragments[0]?.y ?? 700,
-      fontSize: fragments[0]?.fontSize ?? 10,
+      fragments: lineFragments,
+      baseline: lineFragments[0]?.y ?? 700,
+      fontSize: lineFragments[0]?.fontSize ?? 10,
       ...overrides,
     };
+  }
+
+  createAt(left: number, baseline: number, fontSize = 10): TextLine {
+    return this.create([
+      this.fragments.create({ text: 'texto', x: left, y: baseline, width: 100, fontSize }),
+    ]);
   }
 }

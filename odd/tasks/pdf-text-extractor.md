@@ -242,3 +242,43 @@ clases tipo OOP, esto no solo para este proyecto sino en general"*
   `vite build` 0, `src/core` 100% branches with `PdfDocumentLoader.ts` (0%, deferred to T6) the only
   uncovered file.
 - **Not committed**: the standing instruction is to see the code before it is committed.
+
+**L14** (T5, first half — paragraphs; evidence): files `src/core/layout/BlockBuilder.ts`, its test,
+`src/core/models/block.ts`, `src/core/constants/{PARAGRAPH_LINE_GAP_RATIO,INDENT_TOLERANCE_RATIO,
+FONT_SIZE_TOLERANCE_RATIO}.ts`, `assembleBlock` added to `TextAssembler`, hyphen variants added to
+`UNICODE_REPLACEMENTS`, and the `BlockFactory` / extended `LineFactory` test doubles.
+- T5 is delivered as **two commits** (paragraphs, then sections) but kept as a single task, because ODD
+  requires at least one work-unit commit per task and allows more than one. Splitting the commits keeps
+  each review unit focused; splitting the task would only add bookkeeping.
+- Three signals open a block: a vertical gap wider than `1.6 x pair font size`, a font size change beyond
+  `15%`, or a line indented past the block margin by more than `0.5 x block dominant size`.
+- Design decision that the tests forced: the indent rule must compare against a **block margin**, not the
+  previous line's left edge. A paragraph whose first line is indented is the ordinary case, and a
+  line-to-line comparison splits it in two. The margin is the leftmost edge seen so far, which also makes
+  a line starting left of the margin *correct* the margin instead of opening a block. That is what keeps
+  an indented first line followed by body text as one paragraph while a later indented line still opens
+  the next one.
+- Dehyphenation is deliberately narrow: the hyphen must be attached to a letter and the next line must
+  start lowercase. A standalone dash and a hyphen before a new sentence both survive, and each has a test.
+  Mapping `U+2010` and `U+2011` onto an ASCII hyphen is what makes the check a single character.
+- Mutation check, five defects injected one at a time, all caught:
+  - disabling the indent rule → 2 tests;
+  - disabling the font size rule → 1 test;
+  - using `max` instead of `min` for the block margin → 1 test;
+  - welding without dropping the hyphen → 1 test;
+  - dropping the lowercase guard after the hyphen → 1 test.
+- A test was added **before** running that mutation run, not after: *"starts a new indented paragraph
+  after one that was also indented"*. Without it, the `min`-vs-`max` mutation was caught by nothing —
+  every existing case had a single indented paragraph, so the block margin never got tested against a
+  paragraph that already contained one. The two-consecutive-indented-paragraphs shape is what pins it.
+- Coverage finding, the same class as in T4: `BlockBuilder.ts:43` was the unreachable
+  `previous === undefined` guard, there only for `noUncheckedIndexedAccess`. Deleted by passing `previous`
+  from the caller instead. Line edges are now `min`/`max` reduces starting at signed infinities, so a line
+  without fragments contributes nothing to a block box rather than pulling it to zero — which also removed
+  the `?? 0` sentinel and its uncovered branch. The config fallbacks for `indentToleranceRatio` and
+  `fontSizeToleranceRatio` were uncovered too; the "honours explicit ratios" test was extended to cover all
+  three keys, which is what its name already claimed.
+- Evidence: `vitest run` 61/61, `tsc --noEmit` 0, `eslint .` 0, `prettier --check .` clean,
+  `vite build` 0, `src/core` at 100% branches with `PdfDocumentLoader.ts` (0%, deferred to T6) the only
+  uncovered file.
+- Remaining half of T5: headings and sections (`SectionBuilder`), which is what S5 needs for the outline.

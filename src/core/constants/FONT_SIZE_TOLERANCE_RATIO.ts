@@ -1,0 +1,1 @@
+export const FONT_SIZE_TOLERANCE_RATIO = 0.15;
