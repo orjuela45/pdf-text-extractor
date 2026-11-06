@@ -41,6 +41,29 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T17 | Verify the security headers for real: the browser check runs its own static server and never applies the CSP, so either make it apply them or record the headers as verified only on deploy | S7 | F5 Fixes | inline |
 | T18 | Correct `README.md`: it states the suspicious-join signal needs a content scale "above about 2" and it fires near 1.1; also state plainly that the coverage number covers `src/core` only and excludes `src/ui` | S3, S8 | F5 Fixes | inline |
 
+### Routing for T14–T18, set against the models actually configured
+
+Subagent profiles in force (verified in both `~/.gentle-shell/agent/subagents.json` and the frontmatter of
+`~/.gentle-shell/agent/agents/*.md`, which agree on all ten): explore `DeepSeek-V4-Flash-0731` effort low;
+worker and jd-fix-agent `DeepSeek-V4-Pro-0813` effort high; verify and the four `review-*` lenses
+`MiniMax-M3` effort medium; jd-judge-a `MiniMax-M3` effort high; jd-judge-b `Qwen3.6-Plus` effort high.
+
+| Task | Route | Model it lands on | Why |
+| --- | --- | --- | --- |
+| T14 | parent inline, test-first | `DeepSeek-V4.1-Flash` (parent) | `LineBuilder` is one cohesive file; the geometry reasoning must stay in the parent's head |
+| T15 | parent inline, test-first | parent | one rule inside `TextAssembler`; the risk is the same-module interaction with the T4 behaviours |
+| T16 | writer | `DeepSeek-V4-Pro-0813` high | three mechanical fixes across distinct files, each with a mutation to re-establish |
+| T17 | writer | `DeepSeek-V4-Pro-0813` high | touches the browser harness and `vite.config.ts`, then must re-run the browser check |
+| T18 | parent inline | parent | documentation only; delegation would cost more than the edit |
+| T14 and T15, verification | verify | `MiniMax-M3` medium | **mandatory.** Both are high-risk changes to behaviour every other behaviour sits on, and `MiniMax-M3` is the profile that found the blockers in the first place |
+| T19, final pass | verify | `MiniMax-M3` medium | confirm the blockers are actually gone, not merely tested |
+
+**Models that are currently unused and why:** `jd-judge-a` and `jd-judge-b` are for Judgment Day only, and
+this fix round is not a Judgment Day; invoking them would be ceremony without a user request. The four
+`review-*` lenses belong to the native review lifecycle, which has not been started for any candidate.
+`gentle-ai-explore` is for mapping code before a decision, and T14–T18 are already mapped by the
+verification report, so spending it here would be reading what we can already cite by file and line.
+
 ## Log
 
 **L1** (user request, verbatim):
@@ -683,3 +706,24 @@ para corregir los errores y levanta el proyecto para ver como va"*
 - Priority stated for the user: **T14 and T15 are more urgent than any decision about tooling.** They are
   defects in our own grouping and hyphen rules, and no loader swap touches them.
 - The development server is started so the user can look at the application before the fixes land.
+
+**L33** (model configuration validated at the user's request):
+- The user's earlier change was to replace `inherit` with explicit per-subagent models. **It applied, in both
+  places, consistently.** `subagents.json` and the frontmatter of each of the ten `agents/*.md` declare the
+  same model for every agent, verified pair by pair. No precedence conflict exists and no source silently
+  overrides the other.
+- `gentle-ai/managed-assets.json` carries a SHA-256 for each agent file, which means the harness treats them
+  as **package-managed assets** that it re-syncs from the package and verifies by hash. That explains the
+  19:40 timestamps arriving after the 19:19 edit to `subagents.json`: the agent files were regenerated from
+  the profiles rather than edited by hand. The models the user set are therefore the ones in force, and they
+  survive future syncs.
+- Routing for T14–T18 was then derived from that confirmed table plus the real commit authorship, recorded
+  in the task table above. The parent takes T14, T15 and T18 inline; the writer takes T16 and T17; verify
+  takes the confirmation pass. `jd-judge-a`, `jd-judge-b` and the four `review-*` lenses are deliberately left
+  unused: they belong to Judgment Day and to the native review lifecycle, neither of which was requested, and
+  spending them here would be ceremony. `gentle-ai-explore` is skipped because the verification report already
+  located every defect by file and line.
+- Recorded because it happened: **the delegated writer produced one defective artifact in this project** — the
+  hollow test in `tests/PdfDocumentLoader.test.ts`, delivered in `a0a5c12` and caught only by independent
+  verification in T13. The lesson is not which model wrote it; it is that a writer's own test for its own code
+  is not independent evidence, which is why T16 exists and why verification stays mandatory.
