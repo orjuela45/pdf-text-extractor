@@ -112,6 +112,15 @@ end`;
     return await document.save();
   }
 
+  async twoColumns(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, 'columna izquierda uno', 72, 700, 12);
+    this.draw(page, font, 'columna izquierda dos', 72, 686, 12);
+    this.draw(page, font, 'columna derecha uno', 330, 700, 12);
+    this.draw(page, font, 'columna derecha dos', 330, 686, 12);
+    return await document.save();
+  }
+
   async noTextLayer(): Promise<Uint8Array> {
     const { document, page } = await this.createPage();
     page.drawRectangle({ x: 72, y: 700, width: 200, height: 40 });

@@ -1,5 +1,7 @@
 import type { PdfDocumentModel, TextBlock, TextLine, TextSection } from '../../src/core/models';
 import { TextAssembler } from '../../src/core/text/TextAssembler';
+import { BlockHitTester } from '../../src/ui/BlockHitTester';
+import type { Point } from '../../src/ui/models';
 
 export class ExtractionResult {
   readonly document: PdfDocumentModel;
@@ -8,6 +10,7 @@ export class ExtractionResult {
   readonly sections: readonly TextSection[];
 
   private readonly assembler: TextAssembler;
+  private readonly hitTester: BlockHitTester;
 
   constructor(
     document: PdfDocumentModel,
@@ -21,6 +24,7 @@ export class ExtractionResult {
     this.blocks = blocks;
     this.sections = sections;
     this.assembler = assembler;
+    this.hitTester = new BlockHitTester();
   }
 
   fragmentTexts(pageIndex: number): string[] {
@@ -45,5 +49,13 @@ export class ExtractionResult {
     return this.sections.map((section) =>
       section.blocks.map((block) => this.assembler.assembleBlock(block)),
     );
+  }
+
+  copyAt(pageIndex: number, point: Point): { readonly found: boolean; readonly text: string } {
+    const block = this.hitTester.find(this.blocks[pageIndex] ?? [], point);
+
+    return block === null
+      ? { found: false, text: '' }
+      : { found: true, text: this.assembler.assembleBlock(block) };
   }
 }

@@ -727,3 +727,35 @@ para corregir los errores y levanta el proyecto para ver como va"*
   hollow test in `tests/PdfDocumentLoader.test.ts`, delivered in `a0a5c12` and caught only by independent
   verification in T13. The lesson is not which model wrote it; it is that a writer's own test for its own code
   is not independent evidence, which is why T16 exists and why verification stays mandatory.
+
+**L34** (T14 closed — the multi-column blocker is fixed. Evidence, and the two wrong turns taken getting there.)
+- Fix: `ColumnDetector` finds the widest vertical whitespace cuts that no fragment crosses, and `LineBuilder`
+  groups lines **inside each column** instead of across the whole page. Files:
+  `src/core/layout/ColumnDetector.ts` and its test, `src/core/models/columns.ts`,
+  `src/core/constants/COLUMN_GAP_RATIO.ts`, both barrels, and `LineBuilder` reworked around it.
+- The threshold is `4 x body size` and it was **measured, not guessed**. A probe over the existing corpus found
+  the word-space fragment pdf.js inserts is **30pt** at 12pt text, while the column gap is **138pt**; 4em =
+  48pt sits between them with room on both sides. The probe also found the real discriminator: two columns are
+  a **stack** (fragments sharing a left edge with nothing between them), while a single line's words are
+  separated by an inserted space fragment. The detector now requires both signals.
+- The regression probe was written and observed **RED before any production change**: the left-column click
+  copied `columna izquierda uno columna derecha uno columna izquierda dos columna derecha dos`, exactly the
+  defect the independent verification reported. It passes now.
+- **Two wrong turns, recorded because they cost real time and the pattern is worth recognising.**
+  1. I first wrote a `columnsOf` wrapper with a stub `sorted()` and a `groupLines` returning `[]`. It was
+     structure invented before the design was settled, and it had to be deleted wholesale. The working version
+     reuses the existing grouping loop unchanged, which is what the first attempt should have done.
+  2. I then added a `laysOut` candidate filter that never matched anything. Instrumenting the loop by hand,
+     instead of forming a third hypothesis, showed the reason exactly: for the correct cut the lines **end
+     137pt away from it**, so "a line must start or end near the cut" was simply the wrong condition. The
+     filter was both wrong and unnecessary, because `isCut` already requires that no fragment crosses.
+- Coverage lesson, recorded because it nearly slipped through: the first working version dropped `src/core`
+  from 100% to 96% branch coverage. The uncovered branches were **defensive guards I had written and never
+  needed**, plus one real behaviour (`LineBuilder`'s inner-column bounds). The guards were deleted rather than
+  tested — the fifth time in this project — and the real behaviour is now covered by the new `ColumnDetector`
+  unit tests. Coverage is back at 100% on all four metrics and the test count went from 185 to 192.
+- Evidence: `vitest run` **191 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `vite build` 0, `src/core` 100% statements and branches, `pnpm test:browser` 7/7, no comments in source.
+- **Not yet verified by anyone but me.** This is my own fix checked by my own tests. T19 exists to have it
+  independently confirmed, and until then the honest claim is "the regression probe passes", not "the blocker
+  is gone".

@@ -1,5 +1,11 @@
 export type { LineAssembly, TextAssemblerConfig, TextJoinDecision } from './assembly';
 export type { BlockBuilderConfig, TextBlock } from './block';
+export type {
+  ColumnAwareLineBuilderConfig,
+  ColumnDetectorConfig,
+  ColumnLayout,
+  FragmentSpan,
+} from './columns';
 export type { ProgressListener } from './extraction';
 export type { LineBuilderConfig } from './layout';
 export type { PageModel, PdfDocumentModel } from './page';
