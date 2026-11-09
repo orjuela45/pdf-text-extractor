@@ -1223,8 +1223,10 @@ se mira en vez de un efecto secundario de hacer clic.
   machine-level change and was **not performed without authorization**.
 - **`src/ui/constants/HERO_COPY.ts` is committed and does not pass `prettier --check`.** `HERO_NOTE` is 104
   characters on one line against a print width of 100; Prettier wants it wrapped. The commit `6e3ee73`
-  message claims formatting was clean, so this is a false claim in that message. Left untouched here because
-  it is unrelated to T34 and the rule is one change at a time; it needs its own one-line fix.
+  message claims formatting was clean, so this is a false claim in that message.
+- **A second file from the same commit fails the same way: `DESIGN.md`.** So `pnpm format:check` is red on the
+  clean tree for **two** files, both landed by `6e3ee73`, and neither is touched by T34–T36. Left untouched
+  here because they are unrelated and the rule is one change at a time; each needs its own formatting fix.
 
 **L52** (T35 closed — selecting and copying are two actions, and the highlight is the heading only.)
 - **The highlight style was asked, not assumed.** T35 names three candidates and L48 only settles select-vs-copy, so
