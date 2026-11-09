@@ -82,6 +82,49 @@ directo.
 
 ---
 
+## Alternativa: publicarlo en `/tools` de tu dominio (subpath)
+
+Si en vez de un subdominio lo querés en `tudominio.com/tools`, el sitio del extractor sigue
+siendo un sitio Netlify aparte, pero el portfolio lo **proxea**. Netlify no monta un sitio en
+un subpath por sí solo: se hace con un rewrite `200`.
+
+1. En el sitio del extractor, seteá la variable de entorno `VITE_BASE=./`
+   (Site configuration → Environment variables) y volvé a desplegar. Con base **relativa** los
+   assets se resuelven al lado del HTML, así que el **mismo build** anda tanto en la URL propia
+   del sitio como proxeado en `/tools/`. Sin esto los assets se piden en `/assets/...` y los
+   termina sirviendo el portfolio, no la app.
+2. En el `netlify.toml` del **portfolio**, agregá estas dos reglas **antes** del catch-all del
+   SPA:
+
+   ```toml
+   [[redirects]]
+     from = "/tools"
+     to = "/tools/"
+     status = 301
+
+   [[redirects]]
+     from = "/tools/*"
+     to = "https://<sitio-del-extractor>.netlify.app/:splat"
+     status = 200
+   ```
+
+   Si tu portfolio usa un archivo `_redirects`, las mismas dos líneas van ahí, en ese orden:
+
+   ```
+   /tools    /tools/   301
+   /tools/*  https://<sitio-del-extractor>.netlify.app/:splat  200
+   ```
+
+3. **Cabeceras de seguridad.** El portfolio aplica sus propias `[[headers]]` al subpath. Si ya
+   tenés una CSP en el portfolio, agregá para `/tools/*` las mismas cabeceras que este repo
+   define para `/*`, o vas a ver errores de `Content-Security-Policy` en la consola.
+4. Probá `https://tudominio.com/tools`: tiene que redirigir a `/tools/` y cargar la app.
+
+El **subdominio** (`pdf.tudominio.com`) no necesita nada de esto: es el camino simple y el
+que deja las cabeceras intactas.
+
+---
+
 ## Lo que ya está configurado y no tenés que tocar
 
 `netlify.toml` en el repo define:

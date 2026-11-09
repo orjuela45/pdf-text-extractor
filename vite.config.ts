@@ -11,6 +11,7 @@ const netlifyConfig = new NetlifyHeaderReader(
 );
 
 export default defineConfig({
+  base: process.env.VITE_BASE ?? '/',
   plugins: [react(), tailwindcss()],
   server: {
     watch: {
