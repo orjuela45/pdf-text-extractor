@@ -5,6 +5,7 @@ import {
 } from './constants';
 import { TextAssembler } from '../core/text/TextAssembler';
 import type { TextBlock, TextSection } from '../core/models';
+import type { TextPart } from './models/view';
 import type { TextView } from './models/view';
 
 export class DocumentTextWriter {
@@ -22,43 +23,53 @@ export class DocumentTextWriter {
     return block.lines.map((line) => this.assembler.assembleLine(line));
   }
 
+  plainParts(sections: readonly TextSection[]): TextPart[] {
+    return sections.flatMap((section) => [
+      {
+        block: section.heading,
+        text: section.heading === null ? '' : this.paragraph(section.heading),
+      },
+      ...section.blocks.map((block) => ({ block, text: this.paragraph(block) })),
+    ]);
+  }
+
+  markdownParts(sections: readonly TextSection[]): TextPart[] {
+    return sections.flatMap((section) => [
+      {
+        block: section.heading,
+        text:
+          section.heading === null
+            ? ''
+            : `${'#'.repeat(
+                Math.min(section.level + MARKDOWN_HEADING_LEVEL_OFFSET, MAX_MARKDOWN_HEADING_LEVEL),
+              )} ${this.paragraph(section.heading)}`,
+      },
+      ...section.blocks.map((block) => ({ block, text: this.markdownBlock(block) })),
+    ]);
+  }
+
+  parts(sections: readonly TextSection[], view: TextView): TextPart[] {
+    const all = view === 'markdown' ? this.markdownParts(sections) : this.plainParts(sections);
+
+    return all.filter((part) => part.text !== '');
+  }
+
   plain(sections: readonly TextSection[]): string {
-    return sections
-      .flatMap((section) => [
-        section.heading === null ? '' : this.paragraph(section.heading),
-        ...section.blocks.map((block) => this.paragraph(block)),
-      ])
+    return this.plainParts(sections)
+      .map((part) => part.text)
       .filter((text) => text !== '')
       .join('\n\n');
   }
 
   markdown(sections: readonly TextSection[]): string {
-    return sections
-      .flatMap((section) => this.markdownSection(section))
+    return this.markdownParts(sections)
+      .map((part) => part.text)
       .filter((text) => text !== '')
       .join('\n\n');
   }
 
   words(text: string): number {
     return text.match(WORD_PATTERN)?.length ?? 0;
-  }
-
-  private markdownSection(section: TextSection): string[] {
-    const parts: string[] = [];
-
-    if (section.heading !== null) {
-      const level = Math.min(
-        section.level + MARKDOWN_HEADING_LEVEL_OFFSET,
-        MAX_MARKDOWN_HEADING_LEVEL,
-      );
-      parts.push(`${'#'.repeat(level)} ${this.paragraph(section.heading)}`);
-    }
-
-    for (const block of section.blocks) {
-      parts.push(this.markdownBlock(block));
-    }
-
-    return parts;
   }
 
   private markdownBlock(block: TextBlock): string {

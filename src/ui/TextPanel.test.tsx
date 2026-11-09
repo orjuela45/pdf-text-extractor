@@ -72,6 +72,60 @@ describe('TextPanel', () => {
     expect(screen.getByText(/no tiene títulos detectados/i)).toBeInTheDocument();
   });
 
+  it('scrolls the right panel to the selected block', async () => {
+    const block = sections.createBody('Bloque elegido');
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      const { rerender } = render(
+        <TextPanel sections={built} onCopy={vi.fn()} activeBlock={null} scrollTarget={null} />,
+      );
+
+      rerender(
+        <TextPanel sections={built} onCopy={vi.fn()} activeBlock={block} scrollTarget={0} />,
+      );
+
+      expect(scrollIntoView).toHaveBeenCalled();
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('reports back once the scroll was handled', async () => {
+    const block = sections.createBody('Bloque elegido');
+    const onScrollHandled = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+
+    Element.prototype.scrollIntoView = vi.fn();
+
+    try {
+      render(
+        <TextPanel
+          sections={built}
+          onCopy={vi.fn()}
+          activeBlock={block}
+          scrollTarget={0}
+          onScrollHandled={onScrollHandled}
+        />,
+      );
+
+      expect(onScrollHandled).toHaveBeenCalledTimes(1);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('marks the active block in the text', () => {
+    const block = sections.createBody('Primer párrafo');
+
+    render(<TextPanel sections={built} onCopy={vi.fn()} activeBlock={block} />);
+
+    expect(document.querySelector('[data-block-anchor]')).not.toBeNull();
+  });
+
   it('does not claim a missing structure when a heading was detected', async () => {
     const user = userEvent.setup();
 

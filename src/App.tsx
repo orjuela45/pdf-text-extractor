@@ -22,24 +22,24 @@ export function App() {
     progress,
     pages,
     report,
-    outline,
     error,
     document,
     file,
     open,
     copyBlockAt,
-    copySection,
     copyAll,
     copyText,
     sections,
-    sectionHeadingBlock,
-    sectionHeadingText,
+    outlineFor,
+    outlineBlock,
+    copyOutlineBlock,
   } = usePdfDocument();
   const [feedback, setFeedback] = useState<CopyOutcome>(EMPTY_OUTCOME);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [page, setPage] = useState(1);
   const [pageKey, setPageKey] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<number | null>(null);
+  const [scrollTarget, setScrollTarget] = useState<number | null>(null);
   const documentKey = file === null ? null : `${file.name}:${file.size}`;
 
   if (pageKey !== documentKey) {
@@ -53,12 +53,15 @@ export function App() {
     setFeedback(await copyBlockAt(pageIndex, point));
   };
 
-  const handleSelectSection = (index: number): void => {
-    setActiveSection(activeSection === index ? null : index);
+  const handleSelectBlock = (index: number): void => {
+    const next = activeSection === index ? null : index;
+
+    setActiveSection(next);
+    setScrollTarget(next === null ? null : index);
   };
 
-  const handleCopySection = async (index: number): Promise<void> => {
-    setFeedback(await copySection(index));
+  const handleCopyBlock = async (index: number): Promise<void> => {
+    setFeedback(await copyOutlineBlock(page - 1, index));
   };
 
   const handleCopyAll = async (): Promise<void> => {
@@ -72,8 +75,9 @@ export function App() {
   const hasText = report !== null && report.stats.fragments > 0;
   const showNoText = status === 'ready' && report !== null && !hasText;
   const showDocument = status === 'ready' && !showNoText && pages.length > 0;
-  const headingBlock = activeSection === null ? null : sectionHeadingBlock(activeSection);
-  const highlighted = headingBlock === null ? [] : [headingBlock];
+  const outline = showDocument ? outlineFor(page - 1) : [];
+  const activeBlock = activeSection === null ? null : outlineBlock(page - 1, activeSection);
+  const highlighted = activeBlock === null ? [] : [activeBlock];
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface text-on-surface">
@@ -115,8 +119,8 @@ export function App() {
               entries={outline}
               report={report}
               activeIndex={activeSection}
-              onSelectSection={handleSelectSection}
-              onCopySection={(index) => void handleCopySection(index)}
+              onSelectBlock={handleSelectBlock}
+              onCopyBlock={(index) => void handleCopyBlock(index)}
               onCopyAll={() => void handleCopyAll()}
             />
 
@@ -127,7 +131,9 @@ export function App() {
                 scale={zoom}
                 currentPage={page}
                 highlighted={highlighted}
-                highlightLabel={activeSection === null ? null : sectionHeadingText(activeSection)}
+                highlightLabel={
+                  activeBlock === null ? null : (outline[activeSection ?? 0]?.text ?? null)
+                }
                 onCopyAt={(pageIndex, point) => void handleCopyAt(pageIndex, point)}
               />
             </section>
@@ -135,6 +141,9 @@ export function App() {
             <TextPanel
               sections={sections}
               writer={writer}
+              activeBlock={activeBlock}
+              scrollTarget={scrollTarget}
+              onScrollHandled={() => setScrollTarget(null)}
               onCopy={(text) => void handleCopyText(text)}
             />
           </div>

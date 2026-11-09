@@ -19,7 +19,6 @@ export interface UsePdfDocument {
   readonly progress: ExtractionProgress;
   readonly pages: readonly ViewerPage[];
   readonly report: QualityReport | null;
-  readonly outline: readonly OutlineEntry[];
   readonly error: PdfErrorState | null;
   readonly document: PDFDocumentProxy | null;
   readonly file: File | null;
@@ -29,9 +28,9 @@ export interface UsePdfDocument {
   copySection(index: number): Promise<CopyOutcome>;
   copyAll(): Promise<CopyOutcome>;
   copyText(text: string): Promise<CopyOutcome>;
-  sectionBlocks(index: number): readonly TextBlock[];
-  sectionHeadingBlock(index: number): TextBlock | null;
-  sectionHeadingText(index: number): string | null;
+  outlineFor(pageIndex: number): readonly OutlineEntry[];
+  outlineBlock(pageIndex: number, index: number): TextBlock | null;
+  copyOutlineBlock(pageIndex: number, index: number): Promise<CopyOutcome>;
 }
 
 export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
@@ -95,18 +94,20 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     [activeSession],
   );
 
-  const sectionBlocks = useCallback(
-    (index: number): readonly TextBlock[] => activeSession.sectionBlocks(index),
+  const outlineFor = useCallback(
+    (pageIndex: number): readonly OutlineEntry[] => activeSession.outlineFor(pageIndex),
     [activeSession],
   );
 
-  const sectionHeadingBlock = useCallback(
-    (index: number): TextBlock | null => activeSession.sectionHeadingBlock(index),
+  const outlineBlock = useCallback(
+    (pageIndex: number, index: number): TextBlock | null =>
+      activeSession.outlineBlock(pageIndex, index),
     [activeSession],
   );
 
-  const sectionHeadingText = useCallback(
-    (index: number): string | null => activeSession.sectionHeadingText(index),
+  const copyOutlineBlock = useCallback(
+    (pageIndex: number, index: number): Promise<CopyOutcome> =>
+      activeSession.copyOutlineBlock(pageIndex, index),
     [activeSession],
   );
 
@@ -115,7 +116,6 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     progress,
     pages,
     report,
-    outline: activeSession.outline,
     error,
     document: activeSession.documentProxy,
     file,
@@ -125,8 +125,8 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     copySection,
     copyAll,
     copyText,
-    sectionBlocks,
-    sectionHeadingBlock,
-    sectionHeadingText,
+    outlineFor,
+    outlineBlock,
+    copyOutlineBlock,
   };
 }

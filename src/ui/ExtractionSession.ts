@@ -15,8 +15,8 @@ import { TextAssembler } from '../core/text/TextAssembler';
 import { BlockHitTester } from './BlockHitTester';
 import { ClipboardWriter } from './ClipboardWriter';
 import type { CopyOutcome, OutlineEntry, Point, ViewerPage } from './models';
-import { OutlineBuilder } from './OutlineBuilder';
 import { SectionTextAssembler } from './SectionTextAssembler';
+import { PageBlockOutlineBuilder } from './PageBlockOutlineBuilder';
 
 export interface ExtractionSessionConfig {
   readonly clipboard?: ClipboardWriter;
@@ -31,7 +31,7 @@ export class ExtractionSession {
   private readonly hitTester: BlockHitTester;
   private readonly clipboard: ClipboardWriter;
   private readonly sectionTexts: SectionTextAssembler;
-  private readonly outlineBuilder: OutlineBuilder;
+  private readonly pageBlocks: PageBlockOutlineBuilder;
 
   private pages: ViewerPage[] = [];
   private sections: TextSection[] = [];
@@ -46,7 +46,7 @@ export class ExtractionSession {
     this.hitTester = new BlockHitTester();
     this.clipboard = config.clipboard ?? new ClipboardWriter();
     this.sectionTexts = new SectionTextAssembler();
-    this.outlineBuilder = new OutlineBuilder(this.sectionTexts);
+    this.pageBlocks = new PageBlockOutlineBuilder(this.assembler);
   }
 
   async extract(document: PdfDocumentLike, onProgress?: ProgressListener): Promise<void> {
@@ -83,44 +83,28 @@ export class ExtractionSession {
     return this.sections;
   }
 
-  get outline(): readonly OutlineEntry[] {
-    return this.outlineBuilder.build(this.sections, this.sectionPages());
+  outlineFor(pageIndex: number): readonly OutlineEntry[] {
+    return this.pageBlocks.build(this.pages, pageIndex);
   }
 
-  private sectionPages(): number[] {
-    return this.sections.map((section) => {
-      const heading = section.heading;
-
-      if (heading === null) {
-        return 0;
-      }
-
-      const found = this.pages.findIndex((page) => page.blocks.some((block) => block === heading));
-
-      return found === -1 ? 0 : found + 1;
-    });
-  }
-
-  headingText(block: TextBlock): string {
+  blockText(block: TextBlock): string {
     return this.assembler.assembleBlock(block);
   }
 
-  sectionBlocks(index: number): readonly TextBlock[] {
-    const section = this.sections[index];
+  outlineBlock(pageIndex: number, index: number): TextBlock | null {
+    const entry = this.outlineFor(pageIndex)[index];
 
-    return section === undefined ? [] : section.blocks;
+    return entry === undefined ? null : entry.block;
   }
 
-  sectionHeading(index: number): TextBlock | null {
-    const section = this.sections[index];
+  async copyOutlineBlock(pageIndex: number, index: number): Promise<CopyOutcome> {
+    const block = this.outlineBlock(pageIndex, index);
 
-    return section === undefined ? null : section.heading;
-  }
+    if (block === null) {
+      return { text: null, copied: false };
+    }
 
-  sectionText(index: number): string | null {
-    const section = this.sections[index];
-
-    return section === undefined ? null : this.sectionTexts.section(section);
+    return await this.copyText(this.blockText(block));
   }
 
   async copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome> {
@@ -142,9 +126,15 @@ export class ExtractionSession {
   }
 
   async copySection(index: number): Promise<CopyOutcome> {
-    const text = this.sectionText(index);
+    const section = this.sections[index];
 
-    if (text === null || text === '') {
+    if (section === undefined) {
+      return { text: null, copied: false };
+    }
+
+    const text = this.sectionTexts.section(section);
+
+    if (text === '') {
       return { text: null, copied: false };
     }
 

@@ -88,17 +88,47 @@ describe('ExtractionSession', () => {
     });
   });
 
-  it('exposes an outline with each heading and its level', async () => {
+  it('exposes one outline entry per block of the requested page', async () => {
     const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
 
     await session.extract(documents.createHeadings());
 
-    expect(
-      session.outline.map((entry) => ({ heading: entry.heading, level: entry.level })),
-    ).toEqual([
-      { heading: '1. Introduccion', level: 1 },
-      { heading: 'Metodos', level: 2 },
+    expect(session.outlineFor(0).map((entry) => entry.text)).toEqual([
+      '1. Introduccion',
+      'Texto de introduccion uno Texto de introduccion dos',
+      'Metodos',
+      'Texto de metodos uno Texto de metodos dos',
     ]);
+    expect(session.outlineFor(0).map((entry) => entry.page)).toEqual([1, 1, 1, 1]);
+  });
+
+  it('returns no outline entries for a page that does not exist', async () => {
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
+
+    await session.extract(documents.createHeadings());
+
+    expect(session.outlineFor(7)).toEqual([]);
+  });
+
+  it('copies a single outline block on its own', async () => {
+    const clipboard = new FakeClipboard();
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(clipboard) });
+
+    await session.extract(documents.createHeadings());
+
+    const outcome = await session.copyOutlineBlock(0, 0);
+
+    expect(outcome).toEqual({ text: '1. Introduccion', copied: true });
+    expect(clipboard.written).toEqual(['1. Introduccion']);
+  });
+
+  it('exposes the block behind an outline entry so it can be highlighted', async () => {
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
+
+    await session.extract(documents.createHeadings());
+
+    expect(session.outlineBlock(0, 0)).toBe(session.outlineFor(0)[0]?.block);
+    expect(session.outlineBlock(0, 99)).toBeNull();
   });
 
   it('copies a section as its heading plus its assembled blocks', async () => {
@@ -138,8 +168,16 @@ describe('ExtractionSession', () => {
 
     await session.extract(documents.createHeadings());
 
-    expect(session.sectionText(9)).toBeNull();
     expect(await session.copySection(9)).toEqual({ text: null, copied: false });
+  });
+
+  it('returns no text for an outline block that does not exist', async () => {
+    const session = new ExtractionSession({ clipboard: new ClipboardWriter(new FakeClipboard()) });
+
+    await session.extract(documents.createHeadings());
+
+    expect(await session.copyOutlineBlock(0, 99)).toEqual({ text: null, copied: false });
+    expect(await session.copyOutlineBlock(7, 0)).toEqual({ text: null, copied: false });
   });
 
   it('returns no text when there is nothing extracted yet', async () => {

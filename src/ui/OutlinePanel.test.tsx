@@ -3,108 +3,98 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { BlockFactory } from '../test/BlockFactory';
 import { OutlinePanel } from './OutlinePanel';
 
+const blocks = new BlockFactory();
+
 const entries = [
-  { index: 0, heading: 'Introducción', level: 1, text: 'Introducción\n\nPrimer párrafo', page: 1 },
-  { index: 1, heading: 'Métodos', level: 2, text: 'Métodos\n\nCuerpo de métodos', page: 3 },
+  { index: 0, block: blocks.createWithText('ILLUMIA S.A.S.'), text: 'ILLUMIA S.A.S.', page: 1 },
+  { index: 1, block: blocks.createWithText('901.897.818-5'), text: '901.897.818-5', page: 1 },
 ];
 
-describe('OutlinePanel', () => {
-  it('lists every section as a card with its page and a text preview', () => {
-    render(
-      <OutlinePanel
-        entries={entries}
-        onSelectSection={vi.fn()}
-        onCopySection={vi.fn()}
-        onCopyAll={vi.fn()}
-      />,
-    );
+const handlers = {
+  onSelectBlock: vi.fn(),
+  onCopyBlock: vi.fn(),
+  onCopyAll: vi.fn(),
+};
 
-    expect(screen.getByRole('button', { name: /^Introducción/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Métodos/ })).toBeInTheDocument();
-    expect(screen.getByText('Pág. 1')).toBeInTheDocument();
-    expect(screen.getByText('Pág. 3')).toBeInTheDocument();
-    expect(screen.getByText(/Primer párrafo/)).toBeInTheDocument();
+describe('OutlinePanel', () => {
+  it('lists one card per block with its page', () => {
+    render(<OutlinePanel entries={entries} {...handlers} />);
+
+    expect(screen.getByRole('button', { name: /^ILLUMIA S\.A\.S\./ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^901\.897\.818-5/ })).toBeInTheDocument();
+    expect(screen.getAllByText('Pág. 1')).toHaveLength(2);
   });
 
-  it('selects a section without copying it when its card is chosen', async () => {
-    const onSelectSection = vi.fn();
-    const onCopySection = vi.fn();
+  it('shows the whole block text, not a section body', () => {
+    render(<OutlinePanel entries={entries} {...handlers} />);
+
+    expect(screen.getByText('ILLUMIA S.A.S.')).toBeInTheDocument();
+  });
+
+  it('selects a block without copying it', async () => {
+    const onSelectBlock = vi.fn();
+    const onCopyBlock = vi.fn();
     const user = userEvent.setup();
 
     render(
       <OutlinePanel
         entries={entries}
-        onSelectSection={onSelectSection}
-        onCopySection={onCopySection}
+        onSelectBlock={onSelectBlock}
+        onCopyBlock={onCopyBlock}
         onCopyAll={vi.fn()}
       />,
     );
 
-    const card = screen.getByRole('button', { name: /^Introducción/ });
+    const card = screen.getByRole('button', { name: /^ILLUMIA S\.A\.S\./ });
 
     await user.click(card);
 
-    expect(onSelectSection).toHaveBeenCalledWith(0);
-    expect(onCopySection).not.toHaveBeenCalled();
+    expect(onSelectBlock).toHaveBeenCalledWith(0);
+    expect(onCopyBlock).not.toHaveBeenCalled();
     expect(card).toHaveAttribute('aria-current', 'true');
   });
 
-  it('copies a section through its own control without selecting it', async () => {
-    const onSelectSection = vi.fn();
-    const onCopySection = vi.fn();
+  it('copies a block through its own control without selecting it', async () => {
+    const onSelectBlock = vi.fn();
+    const onCopyBlock = vi.fn();
     const user = userEvent.setup();
 
     render(
       <OutlinePanel
         entries={entries}
-        onSelectSection={onSelectSection}
-        onCopySection={onCopySection}
+        onSelectBlock={onSelectBlock}
+        onCopyBlock={onCopyBlock}
         onCopyAll={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Copiar la sección: Métodos' }));
+    await user.click(screen.getByRole('button', { name: 'Copiar el bloque: 901.897.818-5' }));
 
-    expect(onCopySection).toHaveBeenCalledWith(1);
-    expect(onSelectSection).not.toHaveBeenCalled();
+    expect(onCopyBlock).toHaveBeenCalledWith(1);
+    expect(onSelectBlock).not.toHaveBeenCalled();
   });
 
-  it('indents each section by its level', () => {
-    render(
-      <OutlinePanel
-        entries={entries}
-        onSelectSection={vi.fn()}
-        onCopySection={vi.fn()}
-        onCopyAll={vi.fn()}
-      />,
-    );
-
-    const first = screen.getByRole('button', { name: /^Introducción/ }).parentElement;
-    const second = screen.getByRole('button', { name: /^Métodos/ }).parentElement;
-
-    expect(first?.style.marginInlineStart).toBe('0rem');
-    expect(second?.style.marginInlineStart).toBe('1rem');
-  });
-
-  it('marks the selected section with a visible label, not only a border tint', async () => {
+  it('marks the selected block with a visible label', async () => {
     const user = userEvent.setup();
 
-    render(
-      <OutlinePanel
-        entries={entries}
-        onSelectSection={vi.fn()}
-        onCopySection={vi.fn()}
-        onCopyAll={vi.fn()}
-      />,
-    );
+    render(<OutlinePanel entries={entries} {...handlers} />);
 
-    expect(screen.queryByText('Seleccionada')).not.toBeInTheDocument();
+    expect(screen.queryByText('Seleccionado')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /^Introducción/ }));
+    await user.click(screen.getByRole('button', { name: /^ILLUMIA S\.A\.S\./ }));
 
-    expect(screen.getByText('Seleccionada')).toBeInTheDocument();
+    expect(screen.getByText('Seleccionado')).toBeInTheDocument();
+  });
+
+  it('indents nothing, because blocks are a flat list', () => {
+    render(<OutlinePanel entries={entries} {...handlers} />);
+
+    const first = screen.getByRole('button', { name: /^ILLUMIA S\.A\.S\./ });
+
+    expect(first.parentElement?.style.marginInlineStart).toBe('');
   });
 
   it('copies the whole document through a keyboard reachable control', async () => {
@@ -114,8 +104,8 @@ describe('OutlinePanel', () => {
     render(
       <OutlinePanel
         entries={entries}
-        onSelectSection={vi.fn()}
-        onCopySection={vi.fn()}
+        onSelectBlock={vi.fn()}
+        onCopyBlock={vi.fn()}
         onCopyAll={onCopyAll}
       />,
     );
@@ -145,29 +135,14 @@ describe('OutlinePanel', () => {
       },
     };
 
-    render(
-      <OutlinePanel
-        entries={entries}
-        report={report}
-        onSelectSection={vi.fn()}
-        onCopySection={vi.fn()}
-        onCopyAll={vi.fn()}
-      />,
-    );
+    render(<OutlinePanel entries={entries} report={report} {...handlers} />);
 
     expect(screen.getByRole('status')).toHaveTextContent('La página 2 no tiene texto extraíble');
   });
 
-  it('states that no sections were detected', () => {
-    render(
-      <OutlinePanel
-        entries={[]}
-        onSelectSection={vi.fn()}
-        onCopySection={vi.fn()}
-        onCopyAll={vi.fn()}
-      />,
-    );
+  it('says there are no blocks on a page with no text', () => {
+    render(<OutlinePanel entries={[]} {...handlers} />);
 
-    expect(screen.getByText('No se detectaron secciones.')).toBeInTheDocument();
+    expect(screen.getByText('No se detectaron bloques en esta página.')).toBeInTheDocument();
   });
 });

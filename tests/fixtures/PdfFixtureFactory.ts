@@ -171,6 +171,20 @@ end`;
     return await document.save();
   }
 
+  async headingsOnTwoPages(): Promise<Uint8Array> {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const font = await document.embedStandardFont(StandardFonts.Helvetica);
+    const first = document.addPage([612, 792]);
+    const second = document.addPage([612, 792]);
+
+    this.draw(first, font, 'Capitulo uno', 72, 720, 18);
+    this.draw(first, font, 'Cuerpo de la pagina uno', 72, 690, 12);
+    this.draw(second, font, 'Capitulo dos', 72, 720, 18);
+    this.draw(second, font, 'Cuerpo de la pagina dos', 72, 690, 12);
+
+    return await document.save();
+  }
+
   async noTextLayer(): Promise<Uint8Array> {
     const { document, page } = await this.createPage();
     page.drawRectangle({ x: 72, y: 700, width: 200, height: 40 });

@@ -36,8 +36,8 @@ export class PdfDocumentSession {
     return this.extraction.qualityReport;
   }
 
-  get outline(): readonly OutlineEntry[] {
-    return this.extraction.outline;
+  outlineFor(pageIndex: number): readonly OutlineEntry[] {
+    return this.extraction.outlineFor(pageIndex);
   }
 
   copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome> {
@@ -60,17 +60,11 @@ export class PdfDocumentSession {
     return this.extraction.documentSections;
   }
 
-  sectionBlocks(index: number): readonly TextBlock[] {
-    return this.extraction.sectionBlocks(index);
+  outlineBlock(pageIndex: number, index: number): TextBlock | null {
+    return this.extraction.outlineBlock(pageIndex, index);
   }
 
-  sectionHeadingBlock(index: number): TextBlock | null {
-    return this.extraction.sectionHeading(index);
-  }
-
-  sectionHeadingText(index: number): string | null {
-    const heading = this.extraction.sectionHeading(index);
-
-    return heading === null ? null : this.extraction.headingText(heading);
+  copyOutlineBlock(pageIndex: number, index: number): Promise<CopyOutcome> {
+    return this.extraction.copyOutlineBlock(pageIndex, index);
   }
 }

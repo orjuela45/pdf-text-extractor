@@ -1,7 +1,8 @@
+import type { TextBlock } from '../../core/models';
+
 export interface OutlineEntry {
   readonly index: number;
-  readonly heading: string;
-  readonly level: number;
+  readonly block: TextBlock;
   readonly text: string;
   readonly page: number;
 }

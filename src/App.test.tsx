@@ -14,7 +14,6 @@ const base: UsePdfDocument = {
   progress: { done: 0, total: 0 },
   pages: [],
   report: null,
-  outline: [],
   error: null,
   document: null,
   file: null,
@@ -24,9 +23,9 @@ const base: UsePdfDocument = {
   copySection: vi.fn(async () => ({ text: null, copied: false })),
   copyAll: vi.fn(async () => ({ text: null, copied: false })),
   copyText: vi.fn(async () => ({ text: null, copied: false })),
-  sectionBlocks: vi.fn(() => []),
-  sectionHeadingBlock: vi.fn(() => null),
-  sectionHeadingText: vi.fn(() => null),
+  outlineFor: vi.fn(() => []),
+  outlineBlock: vi.fn(() => null),
+  copyOutlineBlock: vi.fn(async () => ({ text: null, copied: false })),
 };
 
 describe('App shell', () => {

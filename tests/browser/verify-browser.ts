@@ -76,6 +76,10 @@ class BrowserFixtures {
     return this.save('heading-paragraphs.pdf', await this.factory.headingWithParagraphs());
   }
 
+  async twoPagesWithHeadings(): Promise<string> {
+    return this.save('two-pages-headings.pdf', await this.factory.headingsOnTwoPages());
+  }
+
   async rotated(): Promise<string> {
     return this.save('rotated.pdf', await this.factory.rotatedPage());
   }
@@ -233,22 +237,17 @@ class BrowserVerifier {
     );
 
     await this.check(
-      'the side panel lists the section without mounting its text and copies the whole document',
+      'the side panel lists one card per block of the current page and copies the document',
       async () => {
-        const panel = await page.$eval(
-          'aside[aria-label="Secciones detectadas"]',
-          (element) => element.textContent ?? '',
+        const cards = await page.$$eval('aside[aria-label="Bloques de la página"] li', (elements) =>
+          elements.map((element) => element.textContent ?? ''),
         );
 
-        assert.ok(panel.includes('Sin título'), 'the panel does not list the section heading');
-
-        const bodyMounted = await page.evaluate(() =>
-          Array.from(document.querySelectorAll('aside p')).some((element) =>
-            (element.textContent ?? '').includes('Segundo parrafo'),
-          ),
+        assert.equal(cards.length, 2, `expected two block cards, saw ${cards.length}`);
+        assert.ok(
+          cards.some((card) => card.includes('Segundo parrafo')),
+          'the second paragraph is not a card of its own',
         );
-
-        assert.equal(bodyMounted, false, 'the section body was mounted while collapsed');
 
         await this.clickButton(page, 'Copiar todo el documento');
 
@@ -271,13 +270,13 @@ class BrowserVerifier {
         await page.waitForFunction(
           () =>
             (
-              document.querySelector('aside[aria-label="Secciones detectadas"]')?.textContent ?? ''
+              document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
             ).includes('Resultados del ejercicio'),
           { timeout: 30000 },
         );
 
         const panel = await page.$eval(
-          'aside[aria-label="Secciones detectadas"]',
+          'aside[aria-label="Bloques de la página"]',
           (element) => element.textContent ?? '',
         );
 
@@ -293,7 +292,7 @@ class BrowserVerifier {
         await page.waitForFunction(
           () =>
             (
-              document.querySelector('aside[aria-label="Secciones detectadas"]')?.textContent ?? ''
+              document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
             ).includes('Seccion uno'),
           { timeout: 30000 },
         );
@@ -322,7 +321,7 @@ class BrowserVerifier {
       await page.waitForFunction(
         () =>
           (
-            document.querySelector('aside[aria-label="Secciones detectadas"]')?.textContent ?? ''
+            document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
           ).includes('Resultados del ejercicio'),
         { timeout: 30000 },
       );
@@ -331,18 +330,97 @@ class BrowserVerifier {
       await page.waitForFunction(
         () =>
           Array.from(
-            document.querySelectorAll('aside[aria-label="Secciones detectadas"] span'),
-          ).some((element) => element.textContent === 'Seleccionada'),
+            document.querySelectorAll('aside[aria-label="Bloques de la página"] span'),
+          ).some((element) => element.textContent === 'Seleccionado'),
         { timeout: 10000 },
       );
 
       const marks = await page.evaluate(
         () =>
           Array.from(
-            document.querySelectorAll('aside[aria-label="Secciones detectadas"] span'),
-          ).filter((element) => element.textContent === 'Seleccionada').length,
+            document.querySelectorAll('aside[aria-label="Bloques de la página"] span'),
+          ).filter((element) => element.textContent === 'Seleccionado').length,
       );
       assert.equal(marks, 1, 'the selected card is not distinctly marked');
+    });
+
+    await this.check(
+      'the panel follows the current page instead of listing every block at once',
+      async () => {
+        await this.upload(page, await this.fixtures.twoPagesWithHeadings());
+        await page.waitForFunction(
+          () =>
+            (
+              document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+            ).includes('Capitulo uno'),
+          { timeout: 30000 },
+        );
+
+        const firstPage = await page.$eval(
+          'aside[aria-label="Bloques de la página"]',
+          (element) => element.textContent ?? '',
+        );
+
+        assert.ok(firstPage.includes('Capitulo uno'), 'page one blocks are missing');
+        assert.ok(
+          !firstPage.includes('Capitulo dos'),
+          'a block from page two is listed while page one is shown',
+        );
+
+        await this.clickAriaLabel(page, 'Página siguiente');
+        await page.waitForFunction(
+          () =>
+            (
+              document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+            ).includes('Capitulo dos'),
+          { timeout: 10000 },
+        );
+
+        const secondPage = await page.$eval(
+          'aside[aria-label="Bloques de la página"]',
+          (element) => element.textContent ?? '',
+        );
+
+        assert.ok(secondPage.includes('Capitulo dos'), 'page two blocks are missing');
+        assert.ok(
+          !secondPage.includes('Capitulo uno'),
+          'a block from page one is still listed on page two',
+        );
+      },
+    );
+
+    await this.check('selecting a block scrolls the extracted text to that block', async () => {
+      await this.clickAriaLabel(page, 'Página anterior');
+      await page.waitForFunction(
+        () =>
+          (
+            document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+          ).includes('Cuerpo de la pagina uno'),
+        { timeout: 30000 },
+      );
+
+      await this.clickSectionCard(page, 'Cuerpo de la pagina uno');
+      await page.waitForFunction(
+        () =>
+          Array.from(document.querySelectorAll('section[aria-label="Texto extraído"] p')).some(
+            (element) => (element.className ?? '').includes('ring-2'),
+          ),
+        { timeout: 10000 },
+      );
+
+      const anchored = await page.evaluate(() => {
+        const marked = Array.from(
+          document.querySelectorAll('section[aria-label="Texto extraído"] p'),
+        ).filter((element) => (element.className ?? '').includes('ring-2'));
+
+        return { count: marked.length, text: marked[0]?.textContent ?? '' };
+      });
+
+      assert.equal(anchored.count, 1, 'the extracted text does not mark exactly one block');
+      assert.ok(
+        anchored.text.includes('Cuerpo de la pagina uno'),
+        `the marked block is not the selected one: ${anchored.text}`,
+      );
     });
 
     await this.check('the drop zone goes away once a document is loaded', async () => {
@@ -506,6 +584,24 @@ class BrowserVerifier {
     }, heading);
 
     assert.ok(point !== null, `no section card containing "${heading}"`);
+    await page.mouse.click(point.x, point.y);
+  }
+
+  private async clickAriaLabel(page: Page, label: string): Promise<void> {
+    const point = await page.evaluate((text) => {
+      const button = document.querySelector(`button[aria-label="${text}"]`);
+
+      if (button === null) {
+        return null;
+      }
+
+      button.scrollIntoView({ block: 'center' });
+      const rect = button.getBoundingClientRect();
+
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }, label);
+
+    assert.ok(point !== null, `no button with aria-label "${label}"`);
     await page.mouse.click(point.x, point.y);
   }
 
