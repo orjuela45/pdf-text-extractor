@@ -80,6 +80,16 @@ end`;
     return await document.save();
   }
 
+  async headingWithParagraphs(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    this.draw(page, font, 'Seccion uno', 72, 720, 18);
+    this.draw(page, font, 'Parrafo uno linea uno', 72, 690, 12);
+    this.draw(page, font, 'parrafo uno linea dos', 72, 676, 12);
+    this.draw(page, font, 'Parrafo dos linea uno', 72, 630, 12);
+    this.draw(page, font, 'parrafo dos linea dos', 72, 616, 12);
+    return await document.save();
+  }
+
   async hyphenatedBreak(): Promise<Uint8Array> {
     const { document, page, font } = await this.createPage();
     this.draw(page, font, 'extra-', 72, 700, 12);

@@ -30,6 +30,7 @@ export interface UsePdfDocument {
   copyAll(): Promise<CopyOutcome>;
   copyText(text: string): Promise<CopyOutcome>;
   sectionBlocks(index: number): readonly TextBlock[];
+  sectionHeadingBlock(index: number): TextBlock | null;
   sectionHeadingText(index: number): string | null;
 }
 
@@ -99,6 +100,11 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     [activeSession],
   );
 
+  const sectionHeadingBlock = useCallback(
+    (index: number): TextBlock | null => activeSession.sectionHeadingBlock(index),
+    [activeSession],
+  );
+
   const sectionHeadingText = useCallback(
     (index: number): string | null => activeSession.sectionHeadingText(index),
     [activeSession],
@@ -120,6 +126,7 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     copyAll,
     copyText,
     sectionBlocks,
+    sectionHeadingBlock,
     sectionHeadingText,
   };
 }

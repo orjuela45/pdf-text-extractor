@@ -56,7 +56,7 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T32 | **Drop zone still visible while the document is loading.** `App.tsx` renders it unconditionally, so it sits there during extraction. **Must land together with T30**, because hiding it without first giving the top bar its own file input is exactly what broke the canvas earlier | S1, S8 | F8 Feedback | inline |
 | T33 | **Markdown looks identical to plain text.** It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
 | T34 | **Heading detection misses bold-only headings** — **closed in L50** — which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
-| T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
+| T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** — **closed in L52** — Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
 | T36 | **The selected section card does not look selected.** The active state is an `aria-current` and a border tint that evidently does not read. Make the selected card unmistakable | S5 | F8 Feedback | inline |
 
 ### Note on the redesign, before any of it starts
@@ -1225,3 +1225,30 @@ se mira en vez de un efecto secundario de hacer clic.
   characters on one line against a print width of 100; Prettier wants it wrapped. The commit `6e3ee73`
   message claims formatting was clean, so this is a false claim in that message. Left untouched here because
   it is unrelated to T34 and the rule is one change at a time; it needs its own one-line fix.
+
+**L52** (T35 closed — selecting and copying are two actions, and the highlight is the heading only.)
+- **The highlight style was asked, not assumed.** T35 names three candidates and L48 only settles select-vs-copy, so
+  the remaining visual choice went to the user, who picked "highlight the section's heading only". The floating
+  label already sat on the first block, so this reads as the section and stops competing with the body text.
+- **The two actions are now separate.** Clicking a card calls `onSelectSection`; each card carries its own
+  `Copiar` control that calls `onCopySection`. `App` no longer toggles the selection from the copy path, and the
+  hook/pipeline gained `sectionHeadingBlock`, so the highlight is exactly the heading block instead of the whole
+  body. Files: `src/ui/OutlinePanel.tsx`, `src/App.tsx`, `src/ui/usePdfDocument.ts`,
+  `src/ui/PdfDocumentSession.ts`, and their tests.
+- **The card could not hold a nested button.** The old card *was* a `<button>`, so a copy `<button>` inside it
+  would be invalid HTML; the card is now a bordered `<div>` wrapping a selection button and, below it, the copy
+  control. That is why every `OutlinePanel` test was rewritten rather than adjusted: the queries had to stop
+  matching a card by the heading, because the copy control's label also names it. Selection is matched with
+  `/^Introducción/` and copy with its exact label.
+- **Two mutations, both caught.** Making the card click also copy fails "selects a section without copying it";
+  making the copy control also select fails "copies a section through its own control without selecting it".
+  This task was not run strictly test-first — the tests and the component were written together — so the
+  mutations are the substitute evidence that the tests actually pin the split, and that is stated rather than
+  hidden.
+- **Honest limitation:** a section with no detected heading (the preamble, shown as "Sin título") has nothing to
+  outline, so selecting it highlights nothing. That is the correct consequence of heading-only highlighting and
+  is recorded rather than worked around with a silent fallback.
+- Evidence: `vitest run` **255 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `src/core` still at **100% on all four metrics**, `pnpm test:browser` **10 of 10 PASS** with the new
+  check "selecting a section highlights only its heading, not every paragraph", and a dev probe showing exactly
+  **1** highlight box with the label "Sección activa: Seccion uno".

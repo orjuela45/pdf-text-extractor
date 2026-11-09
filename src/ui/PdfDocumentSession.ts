@@ -64,6 +64,10 @@ export class PdfDocumentSession {
     return this.extraction.sectionBlocks(index);
   }
 
+  sectionHeadingBlock(index: number): TextBlock | null {
+    return this.extraction.sectionHeading(index);
+  }
+
   sectionHeadingText(index: number): string | null {
     const heading = this.extraction.sectionHeading(index);
 

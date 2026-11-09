@@ -72,6 +72,10 @@ class BrowserFixtures {
     return this.save('bold.pdf', await this.factory.boldHeadings());
   }
 
+  async headingParagraphs(): Promise<string> {
+    return this.save('heading-paragraphs.pdf', await this.factory.headingWithParagraphs());
+  }
+
   async rotated(): Promise<string> {
     return this.save('rotated.pdf', await this.factory.rotatedPage());
   }
@@ -283,6 +287,37 @@ class BrowserVerifier {
     );
 
     await this.check(
+      'selecting a section highlights only its heading, not every paragraph',
+      async () => {
+        await this.upload(page, await this.fixtures.headingParagraphs());
+        await page.waitForFunction(
+          () =>
+            (
+              document.querySelector('aside[aria-label="Secciones detectadas"]')?.textContent ?? ''
+            ).includes('Seccion uno'),
+          { timeout: 30000 },
+        );
+
+        await this.clickSectionCard(page, 'Seccion uno');
+        await page.waitForFunction(
+          () => document.querySelectorAll('.pdf-page span[aria-hidden="true"]').length === 1,
+          { timeout: 10000 },
+        );
+
+        const boxes = await page.evaluate(
+          () => document.querySelectorAll('.pdf-page span[aria-hidden="true"]').length,
+        );
+        assert.equal(boxes, 1, 'the highlight is not limited to the heading');
+
+        const label = await page.$eval(
+          '.pdf-page [role="status"]',
+          (element) => element.textContent ?? '',
+        );
+        assert.ok(label.includes('Seccion uno'), 'the floating label names the selected section');
+      },
+    );
+
+    await this.check(
       'a rotated page renders sideways-turned and still copies the right text',
       async () => {
         await this.upload(page, await this.fixtures.rotated());
@@ -388,6 +423,27 @@ class BrowserVerifier {
     }, needle);
 
     assert.ok(point !== null, `no text layer span containing "${needle}"`);
+    await page.mouse.click(point.x, point.y);
+  }
+
+  private async clickSectionCard(page: Page, heading: string): Promise<void> {
+    const point = await page.evaluate((text) => {
+      const button = Array.from(document.querySelectorAll('button')).find(
+        (element) =>
+          (element.textContent ?? '').includes(text) && !element.hasAttribute('aria-label'),
+      );
+
+      if (button === undefined) {
+        return null;
+      }
+
+      button.scrollIntoView({ block: 'center' });
+      const rect = button.getBoundingClientRect();
+
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }, heading);
+
+    assert.ok(point !== null, `no section card containing "${heading}"`);
     await page.mouse.click(point.x, point.y);
   }
 

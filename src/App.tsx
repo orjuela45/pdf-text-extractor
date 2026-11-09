@@ -32,7 +32,7 @@ export function App() {
     copyAll,
     copyText,
     sections,
-    sectionBlocks,
+    sectionHeadingBlock,
     sectionHeadingText,
   } = usePdfDocument();
   const [feedback, setFeedback] = useState<CopyOutcome>(EMPTY_OUTCOME);
@@ -52,8 +52,11 @@ export function App() {
     setFeedback(await copyBlockAt(pageIndex, point));
   };
 
-  const handleCopySection = async (index: number): Promise<void> => {
+  const handleSelectSection = (index: number): void => {
     setActiveSection(activeSection === index ? null : index);
+  };
+
+  const handleCopySection = async (index: number): Promise<void> => {
     setFeedback(await copySection(index));
   };
 
@@ -68,6 +71,8 @@ export function App() {
   const hasText = report !== null && report.stats.fragments > 0;
   const showNoText = status === 'ready' && report !== null && !hasText;
   const showDocument = status === 'ready' && !showNoText && pages.length > 0;
+  const headingBlock = activeSection === null ? null : sectionHeadingBlock(activeSection);
+  const highlighted = headingBlock === null ? [] : [headingBlock];
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface text-on-surface">
@@ -111,6 +116,7 @@ export function App() {
               entries={outline}
               report={report}
               activeIndex={activeSection}
+              onSelectSection={handleSelectSection}
               onCopySection={(index) => void handleCopySection(index)}
               onCopyAll={() => void handleCopyAll()}
             />
@@ -121,7 +127,7 @@ export function App() {
                 document={document}
                 scale={zoom}
                 currentPage={page}
-                highlighted={activeSection === null ? [] : sectionBlocks(activeSection)}
+                highlighted={highlighted}
                 highlightLabel={activeSection === null ? null : sectionHeadingText(activeSection)}
                 onCopyAt={(pageIndex, point) => void handleCopyAt(pageIndex, point)}
               />

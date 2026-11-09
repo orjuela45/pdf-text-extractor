@@ -7,6 +7,7 @@ export interface OutlinePanelProps {
   readonly entries: readonly OutlineEntry[];
   readonly report?: QualityReport | null;
   readonly activeIndex?: number | null;
+  readonly onSelectSection: (index: number) => void;
   readonly onCopySection: (index: number) => void;
   readonly onCopyAll: () => void;
 }
@@ -14,13 +15,11 @@ export interface OutlinePanelProps {
 const FOCUS_STYLE =
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-container';
 
-const CARD_BASE =
-  'w-full rounded-lg border p-3 text-left transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-container';
-
 export function OutlinePanel({
   entries,
   report = null,
   activeIndex = null,
+  onSelectSection,
   onCopySection,
   onCopyAll,
 }: OutlinePanelProps) {
@@ -67,10 +66,8 @@ export function OutlinePanel({
 
               return (
                 <li key={entry.index}>
-                  <button
-                    type="button"
-                    aria-current={isActive ? 'true' : undefined}
-                    className={`${CARD_BASE} ${
+                  <div
+                    className={`rounded-lg border transition-colors duration-150 ${
                       isActive
                         ? 'border-primary-container bg-secondary-container/40'
                         : 'border-outline-variant/70 bg-surface-lowest/80 hover:border-primary-container/60'
@@ -78,25 +75,41 @@ export function OutlinePanel({
                     style={{
                       marginInlineStart: `${Math.max(0, entry.level - 1) * OUTLINE_INDENT_REM}rem`,
                     }}
-                    onClick={() => {
-                      setOwnActive(isActive ? null : entry.index);
-                      onCopySection(entry.index);
-                    }}
                   >
-                    <span className="flex items-start justify-between gap-2">
-                      <span className="font-serif text-sm leading-snug font-medium text-on-surface">
-                        {entry.heading}
-                      </span>
-                      {entry.page > 0 ? (
-                        <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-[0.6875rem] text-on-surface-variant">
-                          Pág. {entry.page}
+                    <button
+                      type="button"
+                      aria-current={isActive ? 'true' : undefined}
+                      className={`w-full rounded-t-lg p-3 text-left ${FOCUS_STYLE}`}
+                      onClick={() => {
+                        setOwnActive(isActive ? null : entry.index);
+                        onSelectSection(entry.index);
+                      }}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="font-serif text-sm leading-snug font-medium text-on-surface">
+                          {entry.heading}
                         </span>
-                      ) : null}
-                    </span>
-                    <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-on-surface-variant">
-                      {entry.text}
-                    </span>
-                  </button>
+                        {entry.page > 0 ? (
+                          <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-[0.6875rem] text-on-surface-variant">
+                            Pág. {entry.page}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-on-surface-variant">
+                        {entry.text}
+                      </span>
+                    </button>
+                    <div className="flex justify-end px-3 pb-2">
+                      <button
+                        type="button"
+                        aria-label={`Copiar la sección: ${entry.heading}`}
+                        className={`rounded border border-outline-variant/70 px-2 py-1 text-[0.6875rem] text-on-surface-variant transition-colors hover:border-primary-container hover:text-primary ${FOCUS_STYLE}`}
+                        onClick={() => onCopySection(entry.index)}
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
                 </li>
               );
             })}
