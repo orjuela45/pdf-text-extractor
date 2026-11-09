@@ -40,6 +40,10 @@ export class PdfDocumentSession {
     return this.extraction.outlineFor(pageIndex);
   }
 
+  get documentOutline(): readonly OutlineEntry[] {
+    return this.extraction.documentOutline;
+  }
+
   copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome> {
     return this.extraction.copyBlockAt(pageIndex, point);
   }
@@ -66,5 +70,17 @@ export class PdfDocumentSession {
 
   copyOutlineBlock(pageIndex: number, index: number): Promise<CopyOutcome> {
     return this.extraction.copyOutlineBlock(pageIndex, index);
+  }
+
+  copyOutlineBlockInDocument(index: number): Promise<CopyOutcome> {
+    const entry = this.extraction.documentOutline[index];
+
+    return entry === undefined
+      ? Promise.resolve({ text: null, copied: false })
+      : this.extraction.copyBlock(entry.block);
+  }
+
+  pageOfBlock(block: TextBlock): number {
+    return this.extraction.pageOfBlock(block);
   }
 }

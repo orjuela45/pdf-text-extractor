@@ -77,6 +77,71 @@ describe('OutlinePanel', () => {
     expect(onSelectBlock).not.toHaveBeenCalled();
   });
 
+  it('offers a switch between the whole document and the current page', () => {
+    render(<OutlinePanel entries={entries} mode="document" {...handlers} />);
+
+    expect(screen.getByRole('tab', { name: 'Todo' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Página' })).toHaveAttribute('aria-selected', 'false');
+  });
+
+  it('reports the chosen scope back', async () => {
+    const onModeChange = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <OutlinePanel entries={entries} mode="document" onModeChange={onModeChange} {...handlers} />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Página' }));
+
+    expect(onModeChange).toHaveBeenCalledWith('page');
+  });
+
+  it('clamps the card text so every card keeps about the same height', () => {
+    const long = {
+      ...entries[0]!,
+      text: 'Primera linea\nSegunda linea\nTercera linea\nCuarta linea\nQuinta linea',
+    };
+
+    render(<OutlinePanel entries={[long]} {...handlers} />);
+
+    const preview = screen.getByTestId('block-card-text');
+
+    expect(preview.className).toContain('line-clamp-3');
+  });
+
+  it('keeps the full text in the card title so nothing is lost', () => {
+    const long = {
+      ...entries[0]!,
+      text: 'Primera linea\nSegunda linea\nTercera linea\nCuarta linea',
+    };
+
+    render(<OutlinePanel entries={[long]} {...handlers} />);
+
+    expect(screen.getByTestId('block-card-text')).toHaveAttribute(
+      'title',
+      'Primera linea Segunda linea Tercera linea Cuarta linea',
+    );
+  });
+
+  it('copies the whole block even when the card only shows part of it', async () => {
+    const onCopyBlock = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <OutlinePanel
+        entries={entries}
+        onSelectBlock={vi.fn()}
+        onCopyBlock={onCopyBlock}
+        onCopyAll={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copiar el bloque: 901.897.818-5' }));
+
+    expect(onCopyBlock).toHaveBeenCalledWith(1);
+  });
+
   it('marks the selected block with a visible label', async () => {
     const user = userEvent.setup();
 

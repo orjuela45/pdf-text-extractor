@@ -8,6 +8,7 @@ export interface PdfViewerProps {
   readonly document: PDFDocumentProxy | null;
   readonly scale: number;
   readonly currentPage?: number;
+  readonly showAllPages?: boolean;
   readonly highlighted?: readonly TextBlock[];
   readonly highlightLabel?: string | null;
   readonly onCopyAt: (pageIndex: number, point: Point) => void;
@@ -18,12 +19,13 @@ export function PdfViewer({
   document,
   scale,
   currentPage = 1,
+  showAllPages = false,
   highlighted = [],
   highlightLabel = null,
   onCopyAt,
 }: PdfViewerProps) {
   const activePage = pages.find((page) => page.index === currentPage - 1) ?? pages[0];
-  const visible = activePage === undefined ? pages : [activePage];
+  const visible = showAllPages || activePage === undefined ? pages : [activePage];
   if (document === null) {
     return null;
   }

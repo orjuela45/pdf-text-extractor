@@ -17,6 +17,7 @@ import { ClipboardWriter } from './ClipboardWriter';
 import type { CopyOutcome, OutlineEntry, Point, ViewerPage } from './models';
 import { SectionTextAssembler } from './SectionTextAssembler';
 import { PageBlockOutlineBuilder } from './PageBlockOutlineBuilder';
+import { DocumentOutlineBuilder } from './DocumentOutlineBuilder';
 
 export interface ExtractionSessionConfig {
   readonly clipboard?: ClipboardWriter;
@@ -32,6 +33,7 @@ export class ExtractionSession {
   private readonly clipboard: ClipboardWriter;
   private readonly sectionTexts: SectionTextAssembler;
   private readonly pageBlocks: PageBlockOutlineBuilder;
+  private readonly documentBlocks: DocumentOutlineBuilder;
 
   private pages: ViewerPage[] = [];
   private sections: TextSection[] = [];
@@ -47,6 +49,7 @@ export class ExtractionSession {
     this.clipboard = config.clipboard ?? new ClipboardWriter();
     this.sectionTexts = new SectionTextAssembler();
     this.pageBlocks = new PageBlockOutlineBuilder(this.assembler);
+    this.documentBlocks = new DocumentOutlineBuilder(this.assembler);
   }
 
   async extract(document: PdfDocumentLike, onProgress?: ProgressListener): Promise<void> {
@@ -87,6 +90,18 @@ export class ExtractionSession {
     return this.pageBlocks.build(this.pages, pageIndex);
   }
 
+  get documentOutline(): readonly OutlineEntry[] {
+    return this.documentBlocks.build(this.pages);
+  }
+
+  pageOfBlock(block: TextBlock): number {
+    const found = this.pages.findIndex((page) =>
+      page.blocks.some((candidate) => candidate === block),
+    );
+
+    return found === -1 ? 1 : found + 1;
+  }
+
   blockText(block: TextBlock): string {
     return this.assembler.assembleBlock(block);
   }
@@ -104,6 +119,10 @@ export class ExtractionSession {
       return { text: null, copied: false };
     }
 
+    return await this.copyText(this.blockText(block));
+  }
+
+  async copyBlock(block: TextBlock): Promise<CopyOutcome> {
     return await this.copyText(this.blockText(block));
   }
 

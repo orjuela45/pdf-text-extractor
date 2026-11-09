@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import type { QualityReport } from '../core/models';
-import type { OutlineEntry } from './models';
+import type { DocumentMode, OutlineEntry } from './models';
 
 export interface OutlinePanelProps {
   readonly entries: readonly OutlineEntry[];
   readonly report?: QualityReport | null;
   readonly activeIndex?: number | null;
+  readonly mode?: DocumentMode;
+  readonly onModeChange?: (mode: DocumentMode) => void;
   readonly onSelectBlock: (index: number) => void;
   readonly onCopyBlock: (index: number) => void;
   readonly onCopyAll: () => void;
@@ -18,6 +20,8 @@ export function OutlinePanel({
   entries,
   report = null,
   activeIndex = null,
+  mode = 'page',
+  onModeChange,
   onSelectBlock,
   onCopyBlock,
   onCopyAll,
@@ -42,6 +46,28 @@ export function OutlinePanel({
           </span>
         </div>
         <p className="mt-0.5 text-xs text-on-surface-variant">Seleccioná para inspeccionar</p>
+        <div
+          role="tablist"
+          aria-label="Alcance de los bloques"
+          className="glass-bar mt-2 flex rounded-md p-0.5 text-xs"
+        >
+          {(['document', 'page'] as const).map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              role="tab"
+              aria-selected={mode === candidate}
+              className={`flex-1 rounded px-2 py-1 transition-colors ${FOCUS_STYLE} ${
+                mode === candidate
+                  ? 'bg-primary-container text-on-primary'
+                  : 'text-on-surface-variant hover:text-primary'
+              }`}
+              onClick={() => onModeChange?.(candidate)}
+            >
+              {candidate === 'document' ? 'Todo' : 'Página'}
+            </button>
+          ))}
+        </div>
       </header>
 
       {pagesWithoutText.length > 0 ? (
@@ -85,8 +111,11 @@ export function OutlinePanel({
                       }}
                     >
                       <span className="flex items-start justify-between gap-2">
+                        {' '}
                         <span
-                          className={`font-serif text-sm leading-snug font-medium ${isActive ? 'text-primary' : 'text-on-surface'}`}
+                          data-testid="block-card-text"
+                          title={entry.text.replace(/\s+/g, ' ')}
+                          className={`line-clamp-3 font-serif text-sm leading-snug font-medium ${isActive ? 'text-primary' : 'text-on-surface'}`}
                         >
                           {entry.text}
                         </span>

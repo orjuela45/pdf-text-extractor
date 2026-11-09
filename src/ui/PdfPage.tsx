@@ -64,7 +64,7 @@ export function PdfPage({
   const rendered = viewport ?? PENDING_PAGE_VIEWPORT;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-page-anchor={page.index + 1}>
       {failed ? (
         <p role="alert" className="glass rounded-lg px-4 py-3 text-sm text-error">
           {`${PAGE_RENDER_ERROR_MESSAGE} (página ${page.index + 1})`}

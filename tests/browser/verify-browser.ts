@@ -80,6 +80,10 @@ class BrowserFixtures {
     return this.save('two-pages-headings.pdf', await this.factory.headingsOnTwoPages());
   }
 
+  async threePages(): Promise<string> {
+    return this.save('three-pages.pdf', await this.factory.threePages());
+  }
+
   async rotated(): Promise<string> {
     return this.save('rotated.pdf', await this.factory.rotatedPage());
   }
@@ -345,7 +349,7 @@ class BrowserVerifier {
     });
 
     await this.check(
-      'the panel follows the current page instead of listing every block at once',
+      'the page scope lists only the current page and follows the pagination',
       async () => {
         await this.upload(page, await this.fixtures.twoPagesWithHeadings());
         await page.waitForFunction(
@@ -356,6 +360,15 @@ class BrowserVerifier {
           { timeout: 30000 },
         );
 
+        await this.clickTab(page, 'Página');
+        await page.waitForFunction(
+          () =>
+            !(
+              document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+            ).includes('Capitulo dos'),
+          { timeout: 10000 },
+        );
+
         const firstPage = await page.$eval(
           'aside[aria-label="Bloques de la página"]',
           (element) => element.textContent ?? '',
@@ -364,7 +377,7 @@ class BrowserVerifier {
         assert.ok(firstPage.includes('Capitulo uno'), 'page one blocks are missing');
         assert.ok(
           !firstPage.includes('Capitulo dos'),
-          'a block from page two is listed while page one is shown',
+          'a block from page two is listed in page scope',
         );
 
         await this.clickAriaLabel(page, 'Página siguiente');
@@ -386,10 +399,21 @@ class BrowserVerifier {
           !secondPage.includes('Capitulo uno'),
           'a block from page one is still listed on page two',
         );
+
+        await this.clickTab(page, 'Todo');
       },
     );
 
     await this.check('selecting a block scrolls the extracted text to that block', async () => {
+      await this.clickTab(page, 'Página');
+      await page.waitForFunction(
+        () =>
+          (
+            document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+          ).includes('Capitulo dos'),
+        { timeout: 10000 },
+      );
+
       await this.clickAriaLabel(page, 'Página anterior');
       await page.waitForFunction(
         () =>
@@ -464,6 +488,51 @@ class BrowserVerifier {
       );
       assert.equal(geometry.copyVisible, true, 'the copy control left the viewport');
     });
+
+    await this.check(
+      'the whole document is shown by default and the switch narrows it to one page',
+      async () => {
+        await this.upload(page, await this.fixtures.threePages());
+        await page.waitForFunction(
+          () =>
+            (
+              document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+            ).includes('tercera pagina'),
+          { timeout: 30000 },
+        );
+
+        const whole = await page.evaluate(() => {
+          const cards = Array.from(
+            document.querySelectorAll('aside[aria-label="Bloques de la página"] li'),
+          );
+          const preview = cards[0]?.querySelector('[data-testid="block-card-text"]');
+
+          return {
+            pages: document.querySelectorAll('[data-page-anchor]').length,
+            cards: cards.length,
+            clamped: preview?.className.includes('line-clamp-3') ?? false,
+          };
+        });
+
+        assert.equal(whole.pages, 3, 'the whole document is not rendered by default');
+        assert.equal(whole.cards, 3, `expected three block cards, saw ${whole.cards}`);
+        assert.equal(whole.clamped, true, 'the block card text is not clamped');
+
+        await this.clickTab(page, 'Página');
+        await page.waitForFunction(
+          () => document.querySelectorAll('[data-page-anchor]').length === 1,
+          { timeout: 10000 },
+        );
+
+        const onePage = await page.evaluate(() => ({
+          pages: document.querySelectorAll('[data-page-anchor]').length,
+          cards: document.querySelectorAll('aside[aria-label="Bloques de la página"] li').length,
+        }));
+
+        assert.equal(onePage.pages, 1, 'page mode still renders more than one page');
+        assert.equal(onePage.cards, 1, `page mode should list one block, saw ${onePage.cards}`);
+      },
+    );
 
     await this.check('the drop zone goes away once a document is loaded', async () => {
       await this.upload(page, await this.fixtures.bold());
@@ -626,6 +695,26 @@ class BrowserVerifier {
     }, heading);
 
     assert.ok(point !== null, `no section card containing "${heading}"`);
+    await page.mouse.click(point.x, point.y);
+  }
+
+  private async clickTab(page: Page, label: string): Promise<void> {
+    const point = await page.evaluate((text) => {
+      const tab = Array.from(document.querySelectorAll('[role="tab"]')).find(
+        (element) => element.textContent === text,
+      );
+
+      if (tab === undefined) {
+        return null;
+      }
+
+      tab.scrollIntoView({ block: 'center' });
+      const rect = tab.getBoundingClientRect();
+
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }, label);
+
+    assert.ok(point !== null, `no tab labelled "${label}"`);
     await page.mouse.click(point.x, point.y);
   }
 

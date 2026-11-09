@@ -20,6 +20,7 @@ const base: UsePdfDocument = {
   document: null,
   file: null,
   sections: [],
+  documentOutline: [],
   open: vi.fn(async () => undefined),
   copyBlockAt: vi.fn(async () => ({ text: null, copied: false })),
   copySection: vi.fn(async () => ({ text: null, copied: false })),
@@ -28,6 +29,8 @@ const base: UsePdfDocument = {
   outlineFor: vi.fn(() => []),
   outlineBlock: vi.fn(() => null),
   copyOutlineBlock: vi.fn(async () => ({ text: null, copied: false })),
+  copyOutlineBlockInDocument: vi.fn(async () => ({ text: null, copied: false })),
+  pageOfBlock: vi.fn(() => 1),
 };
 
 const loadedReport = {

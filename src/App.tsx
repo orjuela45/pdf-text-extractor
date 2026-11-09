@@ -10,7 +10,7 @@ import { ByteFormatter } from './ui/ByteFormatter';
 import { Dropzone } from './ui/Dropzone';
 import { TopBar } from './ui/TopBar';
 import { TextPanel } from './ui/TextPanel';
-import type { CopyOutcome, Point } from './ui/models';
+import type { CopyOutcome, DocumentMode, Point } from './ui/models';
 import { PdfViewer } from './ui/PdfViewer';
 import { usePdfDocument } from './ui/usePdfDocument';
 
@@ -33,6 +33,9 @@ export function App() {
     outlineFor,
     outlineBlock,
     copyOutlineBlock,
+    copyOutlineBlockInDocument,
+    pageOfBlock,
+    documentOutline,
   } = usePdfDocument();
   const [feedback, setFeedback] = useState<CopyOutcome>(EMPTY_OUTCOME);
   const [copyConfirmed, setCopyConfirmed] = useState(false);
@@ -42,12 +45,15 @@ export function App() {
   const [pageKey, setPageKey] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<number | null>(null);
   const [scrollTarget, setScrollTarget] = useState<number | null>(null);
+  const [mode, setMode] = useState<DocumentMode>('document');
+  const viewerRef = useRef<HTMLElement>(null);
   const documentKey = file === null ? null : `${file.name}:${file.size}`;
 
   if (pageKey !== documentKey) {
     setPageKey(documentKey);
     setPage(1);
     setActiveSection(null);
+    setMode('document');
   }
   const writer = useMemo(() => new DocumentTextWriter(), []);
 
@@ -93,7 +99,11 @@ export function App() {
   };
 
   const handleCopyBlock = async (index: number): Promise<void> => {
-    showCopyOutcome(await copyOutlineBlock(page - 1, index));
+    showCopyOutcome(
+      mode === 'document'
+        ? await copyOutlineBlockInDocument(index)
+        : await copyOutlineBlock(page - 1, index),
+    );
   };
 
   const handleCopyAll = async (): Promise<void> => {
@@ -107,9 +117,25 @@ export function App() {
   const hasText = report !== null && report.stats.fragments > 0;
   const showNoText = status === 'ready' && report !== null && !hasText;
   const showDocument = status === 'ready' && !showNoText && pages.length > 0;
-  const outline = showDocument ? outlineFor(page - 1) : [];
-  const activeBlock = activeSection === null ? null : outlineBlock(page - 1, activeSection);
+  const outline = showDocument && mode === 'document' ? documentOutline : outlineFor(page - 1);
+  const activeBlock =
+    activeSection === null
+      ? null
+      : mode === 'document'
+        ? (documentOutline[activeSection]?.block ?? null)
+        : outlineBlock(page - 1, activeSection);
   const highlighted = activeBlock === null ? [] : [activeBlock];
+  const targetPage = activeBlock === null ? null : pageOfBlock(activeBlock);
+
+  useEffect(() => {
+    if (mode !== 'document' || targetPage === null || viewerRef.current === null) {
+      return;
+    }
+
+    viewerRef.current
+      .querySelector(`[data-page-anchor="${targetPage}"]`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [activeBlock, mode, targetPage]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-surface text-on-surface">
@@ -132,17 +158,20 @@ export function App() {
               entries={outline}
               report={report}
               activeIndex={activeSection}
+              mode={mode}
+              onModeChange={setMode}
               onSelectBlock={handleSelectBlock}
               onCopyBlock={(index) => void handleCopyBlock(index)}
               onCopyAll={() => void handleCopyAll()}
             />
 
-            <section aria-label="Documento" className="min-h-0 overflow-auto">
+            <section ref={viewerRef} aria-label="Documento" className="min-h-0 overflow-auto">
               <PdfViewer
                 pages={pages}
                 document={document}
                 scale={zoom}
                 currentPage={page}
+                showAllPages={mode === 'document'}
                 highlighted={highlighted}
                 highlightLabel={
                   activeBlock === null ? null : (outline[activeSection ?? 0]?.text ?? null)

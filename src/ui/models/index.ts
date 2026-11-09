@@ -7,4 +7,4 @@ export type { PageRenderViewport } from './render';
 export type { HeroFeature } from './hero';
 export type { IntroStep } from './step';
 export type { ExtractionProgress, ExtractionStatus, ViewerPage } from './viewer';
-export type { TextPart, TextView } from './view';
+export type { DocumentMode, TextPart, TextView } from './view';

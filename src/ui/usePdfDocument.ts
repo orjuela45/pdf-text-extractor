@@ -23,6 +23,7 @@ export interface UsePdfDocument {
   readonly document: PDFDocumentProxy | null;
   readonly file: File | null;
   readonly sections: readonly TextSection[];
+  readonly documentOutline: readonly OutlineEntry[];
   open(file: File): Promise<void>;
   copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome>;
   copySection(index: number): Promise<CopyOutcome>;
@@ -31,6 +32,8 @@ export interface UsePdfDocument {
   outlineFor(pageIndex: number): readonly OutlineEntry[];
   outlineBlock(pageIndex: number, index: number): TextBlock | null;
   copyOutlineBlock(pageIndex: number, index: number): Promise<CopyOutcome>;
+  copyOutlineBlockInDocument(index: number): Promise<CopyOutcome>;
+  pageOfBlock(block: TextBlock): number;
 }
 
 export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
@@ -111,6 +114,16 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     [activeSession],
   );
 
+  const copyOutlineBlockInDocument = useCallback(
+    (index: number): Promise<CopyOutcome> => activeSession.copyOutlineBlockInDocument(index),
+    [activeSession],
+  );
+
+  const pageOfBlock = useCallback(
+    (block: TextBlock): number => activeSession.pageOfBlock(block),
+    [activeSession],
+  );
+
   return {
     status,
     progress,
@@ -120,6 +133,7 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     document: activeSession.documentProxy,
     file,
     sections: activeSession.sections,
+    documentOutline: activeSession.documentOutline,
     open,
     copyBlockAt,
     copySection,
@@ -128,5 +142,7 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     outlineFor,
     outlineBlock,
     copyOutlineBlock,
+    copyOutlineBlockInDocument,
+    pageOfBlock,
   };
 }
