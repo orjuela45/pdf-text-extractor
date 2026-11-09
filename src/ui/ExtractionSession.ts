@@ -79,8 +79,42 @@ export class ExtractionSession {
     return this.report;
   }
 
+  get documentSections(): readonly TextSection[] {
+    return this.sections;
+  }
+
   get outline(): readonly OutlineEntry[] {
-    return this.outlineBuilder.build(this.sections);
+    return this.outlineBuilder.build(this.sections, this.sectionPages());
+  }
+
+  private sectionPages(): number[] {
+    return this.sections.map((section) => {
+      const heading = section.heading;
+
+      if (heading === null) {
+        return 0;
+      }
+
+      const found = this.pages.findIndex((page) => page.blocks.some((block) => block === heading));
+
+      return found === -1 ? 0 : found + 1;
+    });
+  }
+
+  headingText(block: TextBlock): string {
+    return this.assembler.assembleBlock(block);
+  }
+
+  sectionBlocks(index: number): readonly TextBlock[] {
+    const section = this.sections[index];
+
+    return section === undefined ? [] : section.blocks;
+  }
+
+  sectionHeading(index: number): TextBlock | null {
+    const section = this.sections[index];
+
+    return section === undefined ? null : section.heading;
   }
 
   sectionText(index: number): string | null {
@@ -118,8 +152,10 @@ export class ExtractionSession {
   }
 
   async copyAll(): Promise<CopyOutcome> {
-    const text = this.sectionTexts.document(this.sections);
+    return await this.copyText(this.sectionTexts.document(this.sections));
+  }
 
+  async copyText(text: string): Promise<CopyOutcome> {
     if (text === '') {
       return { text: null, copied: false };
     }

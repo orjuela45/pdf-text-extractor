@@ -10,12 +10,13 @@ export class OutlineBuilder {
     this.texts = texts;
   }
 
-  build(sections: readonly TextSection[]): OutlineEntry[] {
+  build(sections: readonly TextSection[], pageOf: readonly number[] = []): OutlineEntry[] {
     return sections.map((section, index) => ({
       index,
       heading: this.texts.heading(section) ?? UNTITLED_SECTION_HEADING,
       level: section.level,
       text: this.texts.section(section),
+      page: pageOf[index] ?? 0,
     }));
   }
 }

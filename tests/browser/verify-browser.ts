@@ -163,8 +163,12 @@ class BrowserVerifier {
     });
 
     await this.check('the app loads with the product name and no console errors', async () => {
-      const heading = await page.$eval('h1', (element) => element.textContent);
-      assert.equal(heading, 'Extractor de texto PDF');
+      const name = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('span')).some(
+          (element) => element.textContent === 'Extractor de texto PDF',
+        ),
+      );
+      assert.ok(name, 'the product name is not shown');
       assert.deepEqual(this.consoleErrors, []);
     });
 
@@ -224,7 +228,7 @@ class BrowserVerifier {
       'the side panel lists the section without mounting its text and copies the whole document',
       async () => {
         const panel = await page.$eval(
-          'aside[aria-label="Esquema del documento"]',
+          'aside[aria-label="Secciones detectadas"]',
           (element) => element.textContent ?? '',
         );
 
@@ -278,7 +282,8 @@ class BrowserVerifier {
           'parrafo rotado',
         );
 
-        assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'parrafo rotado');
+        const copied = await page.evaluate(() => navigator.clipboard.readText());
+        assert.equal(copied, 'parrafo rotado');
       },
     );
 
@@ -353,7 +358,7 @@ class BrowserVerifier {
       span.scrollIntoView({ block: 'center' });
       const rect = span.getBoundingClientRect();
 
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height * 0.75 };
     }, needle);
 
     assert.ok(point !== null, `no text layer span containing "${needle}"`);

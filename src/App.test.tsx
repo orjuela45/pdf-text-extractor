@@ -5,11 +5,11 @@ import { describe, expect, it } from 'vitest';
 import { App } from './App';
 
 describe('App shell', () => {
-  it('renders the product name and the client-side promise', () => {
+  it('renders the product name and offers to load a PDF', () => {
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'Extractor de texto PDF' })).toBeInTheDocument();
-    expect(screen.getByText(/se corrigen al cargar el archivo/)).toBeInTheDocument();
+    expect(screen.getByText('Extractor de texto PDF')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cargar PDF' })).toBeInTheDocument();
   });
 
   it('offers a dropzone and a file picker', () => {

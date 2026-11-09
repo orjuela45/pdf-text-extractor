@@ -128,6 +128,23 @@ end`;
     return await document.save();
   }
 
+  async twoColumnTable(): Promise<Uint8Array> {
+    const { document, page, font } = await this.createPage();
+    const rows: readonly (readonly [string, string])[] = [
+      ['Concepto', 'Importe'],
+      ['Ingresos', '1.250'],
+      ['Costes', '840'],
+    ];
+
+    rows.forEach(([left, right], index) => {
+      const y = 700 - index * 14;
+      this.draw(page, font, left, 72, y, 12);
+      this.draw(page, font, right, 400, y, 12);
+    });
+
+    return await document.save();
+  }
+
   async noTextLayer(): Promise<Uint8Array> {
     const { document, page } = await this.createPage();
     page.drawRectangle({ x: 72, y: 700, width: 200, height: 40 });

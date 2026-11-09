@@ -28,4 +28,5 @@ export type {
   ViewportParameters,
 } from './pdfjs';
 export type { SectionBuilderConfig, TextSection } from './section';
+export type { LineGap, TableRowDetectorConfig } from './table';
 export type { TextDirection, TextFragment, TextLine } from './text';

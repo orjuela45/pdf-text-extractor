@@ -4,13 +4,16 @@ import {
   PARAGRAPH_LINE_GAP_RATIO,
 } from '../constants';
 import type { BlockBuilderConfig, TextBlock, TextLine } from '../models';
+import { TableRowDetector } from './TableRowDetector';
 
 export class BlockBuilder {
+  private readonly tableRows: TableRowDetector;
   private readonly lineGapRatio: number;
   private readonly indentRatio: number;
   private readonly sizeRatio: number;
 
   constructor(config: BlockBuilderConfig = {}) {
+    this.tableRows = new TableRowDetector();
     this.lineGapRatio = config.lineGapRatio ?? PARAGRAPH_LINE_GAP_RATIO;
     this.indentRatio = config.indentToleranceRatio ?? INDENT_TOLERANCE_RATIO;
     this.sizeRatio = config.fontSizeToleranceRatio ?? FONT_SIZE_TOLERANCE_RATIO;
@@ -39,6 +42,10 @@ export class BlockBuilder {
   }
 
   private startsBlock(group: readonly TextLine[], previous: TextLine, line: TextLine): boolean {
+    if (this.tableRows.isTableRow(line) || this.tableRows.isTableRow(previous)) {
+      return true;
+    }
+
     const pairSize = Math.max(previous.fontSize, line.fontSize);
 
     if (Math.abs(line.baseline - previous.baseline) > this.lineGapRatio * pairSize) {

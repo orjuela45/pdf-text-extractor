@@ -1,0 +1,1 @@
+export const MARKDOWN_HEADING_LEVEL_OFFSET = 1;

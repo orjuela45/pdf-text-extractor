@@ -3,4 +3,5 @@ export interface OutlineEntry {
   readonly heading: string;
   readonly level: number;
   readonly text: string;
+  readonly page: number;
 }

@@ -1,0 +1,1 @@
+export const MAX_MARKDOWN_HEADING_LEVEL = 6;

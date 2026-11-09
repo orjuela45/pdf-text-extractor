@@ -4,4 +4,7 @@ export type { PdfErrorKind, PdfErrorState } from './error';
 export type { Point } from './geometry';
 export type { OutlineEntry } from './outline';
 export type { PageRenderViewport } from './render';
+export type { HeroFeature } from './hero';
+export type { IntroStep } from './step';
 export type { ExtractionProgress, ExtractionStatus, ViewerPage } from './viewer';
+export type { TextView } from './view';

@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CopyFeedback } from './ui/CopyFeedback';
 import { ErrorNotice } from './ui/ErrorNotice';
+import { HeroPanel } from './ui/HeroPanel';
 import { NoTextPanel } from './ui/NoTextPanel';
 import { OutlinePanel } from './ui/OutlinePanel';
-import { PDF_RENDER_SCALE } from './ui/constants';
+import { DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM } from './ui/constants';
+import { DocumentTextWriter } from './ui/DocumentTextWriter';
+import { ByteFormatter } from './ui/ByteFormatter';
 import { Dropzone } from './ui/Dropzone';
+import { TopBar } from './ui/TopBar';
+import { TextPanel } from './ui/TextPanel';
 import type { CopyOutcome, Point } from './ui/models';
 import { PdfViewer } from './ui/PdfViewer';
-import { ReportPanel } from './ui/ReportPanel';
 import { usePdfDocument } from './ui/usePdfDocument';
 
 const EMPTY_OUTCOME: CopyOutcome = { text: null, copied: false };
@@ -21,18 +25,35 @@ export function App() {
     outline,
     error,
     document,
+    file,
     open,
     copyBlockAt,
     copySection,
     copyAll,
+    copyText,
+    sections,
+    sectionBlocks,
+    sectionHeadingText,
   } = usePdfDocument();
   const [feedback, setFeedback] = useState<CopyOutcome>(EMPTY_OUTCOME);
+  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  const [page, setPage] = useState(1);
+  const [pageKey, setPageKey] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<number | null>(null);
+  const documentKey = file === null ? null : `${file.name}:${file.size}`;
+
+  if (pageKey !== documentKey) {
+    setPageKey(documentKey);
+    setPage(1);
+  }
+  const writer = useMemo(() => new DocumentTextWriter(), []);
 
   const handleCopyAt = async (pageIndex: number, point: Point): Promise<void> => {
     setFeedback(await copyBlockAt(pageIndex, point));
   };
 
   const handleCopySection = async (index: number): Promise<void> => {
+    setActiveSection(activeSection === index ? null : index);
     setFeedback(await copySection(index));
   };
 
@@ -40,62 +61,77 @@ export function App() {
     setFeedback(await copyAll());
   };
 
+  const handleCopyText = async (text: string): Promise<void> => {
+    setFeedback(await copyText(text));
+  };
+
   const hasText = report !== null && report.stats.fragments > 0;
   const showNoText = status === 'ready' && report !== null && !hasText;
-  const showDocument = status === 'ready' && !showNoText;
+  const showDocument = status === 'ready' && !showNoText && pages.length > 0;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="border-b border-slate-200 px-6 py-4 dark:border-slate-800">
-        <h1 className="text-lg font-semibold tracking-tight">Extractor de texto PDF</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Los espacios entre palabras se corrigen al cargar el archivo, no al copiar.
-        </p>
-      </header>
+    <div className="flex min-h-dvh flex-col bg-surface text-on-surface">
+      <TopBar
+        fileName={file?.name ?? null}
+        fileSize={file === null ? null : new ByteFormatter().format(file.size)}
+        page={page}
+        pageCount={pages.length}
+        zoom={zoom}
+        onPageChange={setPage}
+        onZoomChange={(next) => setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)))}
+        onLoad={() => {
+          const input = window.document.querySelector<HTMLInputElement>('input[type="file"]');
 
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 sm:p-6">
-        <Dropzone onFile={(file) => void open(file)} disabled={status === 'loading'} />
+          input?.click();
+        }}
+      />
+
+      <main className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        {error !== null ? <ErrorNotice error={error} /> : null}
+
+        {!showDocument ? <HeroPanel /> : null}
+
+        <Dropzone onFile={(chosen) => void open(chosen)} disabled={status === 'loading'} />
+
+        <CopyFeedback outcome={feedback} onDismiss={() => setFeedback(EMPTY_OUTCOME)} />
 
         {status === 'loading' ? (
-          <p role="status" className="text-sm text-slate-500 dark:text-slate-400">
+          <p role="status" className="text-center text-sm text-on-surface-variant">
             {progress.total > 0
               ? `Extrayendo texto: ${progress.done} de ${progress.total} páginas…`
               : 'Leyendo el PDF…'}
           </p>
         ) : null}
 
-        {error !== null ? <ErrorNotice error={error} /> : null}
-
-        {report !== null && !showNoText ? <ReportPanel report={report} /> : null}
-
-        <CopyFeedback outcome={feedback} onDismiss={() => setFeedback(EMPTY_OUTCOME)} />
-
         {showNoText ? <NoTextPanel /> : null}
 
-        {showDocument ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Hacé clic en un párrafo del documento para copiar su texto ya corregido.
-          </p>
-        ) : null}
-
-        {showDocument ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+        {showDocument && document !== null ? (
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_minmax(0,22rem)]">
             <OutlinePanel
               entries={outline}
+              report={report}
+              activeIndex={activeSection}
               onCopySection={(index) => void handleCopySection(index)}
               onCopyAll={() => void handleCopyAll()}
             />
 
-            {pages.length > 0 && document !== null ? (
-              <section aria-label="Documento">
-                <PdfViewer
-                  pages={pages}
-                  document={document}
-                  scale={PDF_RENDER_SCALE}
-                  onCopyAt={(pageIndex, point) => void handleCopyAt(pageIndex, point)}
-                />
-              </section>
-            ) : null}
+            <section aria-label="Documento" className="min-h-0 overflow-auto">
+              <PdfViewer
+                pages={pages}
+                document={document}
+                scale={zoom}
+                currentPage={page}
+                highlighted={activeSection === null ? [] : sectionBlocks(activeSection)}
+                highlightLabel={activeSection === null ? null : sectionHeadingText(activeSection)}
+                onCopyAt={(pageIndex, point) => void handleCopyAt(pageIndex, point)}
+              />
+            </section>
+
+            <TextPanel
+              sections={sections}
+              writer={writer}
+              onCopy={(text) => void handleCopyText(text)}
+            />
           </div>
         ) : null}
       </main>

@@ -1,0 +1,1 @@
+export const HIGHLIGHT_LABEL_OFFSET = 22;

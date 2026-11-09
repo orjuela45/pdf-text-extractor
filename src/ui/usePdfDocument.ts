@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { QualityReport } from '../core/models';
+import type { QualityReport, TextBlock, TextSection } from '../core/models';
 import { FileSizeGuard } from './FileSizeGuard';
 import type {
   CopyOutcome,
@@ -22,10 +22,15 @@ export interface UsePdfDocument {
   readonly outline: readonly OutlineEntry[];
   readonly error: PdfErrorState | null;
   readonly document: PDFDocumentProxy | null;
+  readonly file: File | null;
+  readonly sections: readonly TextSection[];
   open(file: File): Promise<void>;
   copyBlockAt(pageIndex: number, point: Point): Promise<CopyOutcome>;
   copySection(index: number): Promise<CopyOutcome>;
   copyAll(): Promise<CopyOutcome>;
+  copyText(text: string): Promise<CopyOutcome>;
+  sectionBlocks(index: number): readonly TextBlock[];
+  sectionHeadingText(index: number): string | null;
 }
 
 export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
@@ -37,6 +42,7 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
   const [pages, setPages] = useState<readonly ViewerPage[]>([]);
   const [report, setReport] = useState<QualityReport | null>(null);
   const [error, setError] = useState<PdfErrorState | null>(null);
+  const [file, setFile] = useState<File | null>(null);
 
   const open = useCallback(
     async (file: File): Promise<void> => {
@@ -48,6 +54,7 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
         return;
       }
 
+      setFile(file);
       setStatus('loading');
       setProgress({ done: 0, total: 0 });
       setError(null);
@@ -82,6 +89,21 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
 
   const copyAll = useCallback((): Promise<CopyOutcome> => activeSession.copyAll(), [activeSession]);
 
+  const copyText = useCallback(
+    (text: string): Promise<CopyOutcome> => activeSession.copyText(text),
+    [activeSession],
+  );
+
+  const sectionBlocks = useCallback(
+    (index: number): readonly TextBlock[] => activeSession.sectionBlocks(index),
+    [activeSession],
+  );
+
+  const sectionHeadingText = useCallback(
+    (index: number): string | null => activeSession.sectionHeadingText(index),
+    [activeSession],
+  );
+
   return {
     status,
     progress,
@@ -90,9 +112,14 @@ export function usePdfDocument(session?: PdfDocumentSession): UsePdfDocument {
     outline: activeSession.outline,
     error,
     document: activeSession.documentProxy,
+    file,
+    sections: activeSession.sections,
     open,
     copyBlockAt,
     copySection,
     copyAll,
+    copyText,
+    sectionBlocks,
+    sectionHeadingText,
   };
 }

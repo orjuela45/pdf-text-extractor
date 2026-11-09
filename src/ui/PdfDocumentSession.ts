@@ -1,5 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { ProgressListener, QualityReport } from '../core/models';
+import type { ProgressListener, QualityReport, TextBlock, TextSection } from '../core/models';
 import { PdfDocumentLoader } from '../core/pdf/PdfDocumentLoader';
 import { ExtractionSession } from './ExtractionSession';
 import type { CopyOutcome, OutlineEntry, Point, ViewerPage } from './models';
@@ -50,5 +50,23 @@ export class PdfDocumentSession {
 
   copyAll(): Promise<CopyOutcome> {
     return this.extraction.copyAll();
+  }
+
+  copyText(text: string): Promise<CopyOutcome> {
+    return this.extraction.copyText(text);
+  }
+
+  get sections(): readonly TextSection[] {
+    return this.extraction.documentSections;
+  }
+
+  sectionBlocks(index: number): readonly TextBlock[] {
+    return this.extraction.sectionBlocks(index);
+  }
+
+  sectionHeadingText(index: number): string | null {
+    const heading = this.extraction.sectionHeading(index);
+
+    return heading === null ? null : this.extraction.headingText(heading);
   }
 }

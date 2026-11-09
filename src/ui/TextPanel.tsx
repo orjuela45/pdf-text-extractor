@@ -1,0 +1,80 @@
+import { useMemo, useState } from 'react';
+import { DocumentTextWriter } from './DocumentTextWriter';
+import type { TextSection } from '../core/models';
+import type { TextView } from './models/view';
+
+export interface TextPanelProps {
+  readonly sections: readonly TextSection[];
+  readonly onCopy: (text: string) => void;
+  readonly writer?: DocumentTextWriter;
+}
+
+const FOCUS_STYLE =
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-container';
+
+export function TextPanel({ sections, onCopy, writer = new DocumentTextWriter() }: TextPanelProps) {
+  const [view, setView] = useState<TextView>('plain');
+
+  const text = useMemo(() => writer.view(sections, view), [writer, sections, view]);
+  const words = useMemo(() => writer.words(text), [writer, text]);
+
+  return (
+    <section
+      aria-label="Texto extraído"
+      className="glass flex h-full flex-col rounded-lg shadow-glass"
+    >
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/60 px-4 py-3">
+        <h2 className="font-sans text-xs font-semibold tracking-wide text-on-surface-variant uppercase">
+          Texto extraído
+        </h2>
+        <div
+          role="tablist"
+          aria-label="Formato del texto"
+          className="glass-bar flex rounded-md p-0.5 text-xs"
+        >
+          {(['plain', 'markdown'] as const).map((candidate) => (
+            <button
+              key={candidate}
+              type="button"
+              role="tab"
+              aria-selected={view === candidate}
+              className={`rounded px-2.5 py-1 transition-colors ${FOCUS_STYLE} ${
+                view === candidate
+                  ? 'bg-primary-container text-on-primary'
+                  : 'text-on-surface-variant hover:text-primary'
+              }`}
+              onClick={() => setView(candidate)}
+            >
+              {candidate === 'plain' ? 'Plano' : 'Markdown'}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="flex items-center justify-between px-4 pt-3 text-xs text-on-surface-variant">
+        <span>{sections.length === 1 ? '1 sección' : `${sections.length} secciones`}</span>
+        <span aria-live="polite">{words === 1 ? '1 palabra' : `${words} palabras`}</span>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+        {text === '' ? (
+          <p className="text-sm text-on-surface-variant">Todavía no hay texto extraído.</p>
+        ) : (
+          <pre className="font-serif text-sm leading-relaxed whitespace-pre-wrap text-on-surface">
+            {text}
+          </pre>
+        )}
+      </div>
+
+      <footer className="border-t border-outline-variant/60 p-3">
+        <button
+          type="button"
+          className={`w-full rounded-md bg-primary-container px-4 py-2.5 text-sm font-medium text-on-primary transition-colors hover:bg-primary ${FOCUS_STYLE}`}
+          onClick={() => onCopy(text)}
+        >
+          Copiar texto
+        </button>
+      </footer>
+    </section>
+  );
+}

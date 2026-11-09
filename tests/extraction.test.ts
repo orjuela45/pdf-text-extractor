@@ -86,4 +86,10 @@ describe('PDF extraction end to end', () => {
     expect(await fixtures.separatedWords()).toEqual(await fixtures.separatedWords());
     expect(await fixtures.headings()).toEqual(await fixtures.headings());
   });
+
+  it('keeps the rows of a two column table apart instead of merging them', async () => {
+    const result = await pipeline.run(await fixtures.twoColumnTable());
+
+    expect(result.blockTexts(0)).toEqual(['Concepto Importe', 'Ingresos 1.250', 'Costes 840']);
+  });
 });

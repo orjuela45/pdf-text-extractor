@@ -1,4 +1,4 @@
-import { TextLayer, type PDFDocumentProxy, type PageViewport, type RenderTask } from 'pdfjs-dist';
+import type { PDFDocumentProxy, PageViewport, RenderTask } from 'pdfjs-dist';
 import type { PageRenderViewport } from './models';
 
 interface ViewportPage {
@@ -13,31 +13,27 @@ export class PageRenderer {
   }
 
   async render(
-    document: PDFDocumentProxy,
+    pdf: PDFDocumentProxy,
     pageNumber: number,
     scale: number,
     canvas: HTMLCanvasElement,
-    textLayerContainer: HTMLElement,
   ): Promise<PageRenderViewport> {
-    const page = await document.getPage(pageNumber);
+    const page = await pdf.getPage(pageNumber);
     const viewport = this.createViewport(page, scale);
+    const scratch = document.createElement('canvas');
 
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    canvas.style.width = `${viewport.width}px`;
-    canvas.style.height = `${viewport.height}px`;
+    scratch.width = viewport.width;
+    scratch.height = viewport.height;
 
-    this.task = page.render({ canvas, viewport });
+    this.task = page.render({ canvas: scratch, viewport });
     await this.task.promise;
     this.task = null;
 
-    textLayerContainer.replaceChildren();
-    const textLayer = new TextLayer({
-      textContentSource: await page.getTextContent(),
-      container: textLayerContainer,
-      viewport,
-    });
-    await textLayer.render();
+    canvas.width = scratch.width;
+    canvas.height = scratch.height;
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+    canvas.getContext('2d')?.drawImage(scratch, 0, 0);
 
     return { width: viewport.width, height: viewport.height, transform: viewport.transform };
   }

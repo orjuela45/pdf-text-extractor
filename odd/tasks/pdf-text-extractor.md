@@ -46,6 +46,18 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T22 | **Plain / Markdown views of the extracted text**, with a word count. Markdown is new behaviour, not a style: headings, paragraphs and lists have to be emitted from the existing block and section models | S5, S9 | F6 Design | writer |
 | T23 | **Active-section highlight on the real PDF.** Clicking a section card highlights that section's geometry on the canvas with a floating label. Same machinery as click-to-copy: `SectionBuilder` blocks in PDF user space mapped through `CoordinateMapper`. The mockup draws this over simulated HTML, so it has to be built over the real canvas | S2, S4, S5, S9 | F6 Design | writer |
 | T24 | Verify the redesign: three panels at narrow widths, keyboard reachable, contrast holds, and the browser check still passes under the CSP with the new layout | S8, S9 | F6 Design | verify |
+| T25 | **Fix the StrictMode render race first.** In `pnpm dev` the effect runs twice, pdf.js refuses two renders on one canvas, and the viewer sticks on "Preparando la página…". **Blocks every other welcome task**, because it is why nothing renders in development | S1 | F7 Welcome | inline, test-first |
+| T26 | Hero and welcome screen: badge, serif headline, subhead, three feature chips, and the honest copy that replaces the mockup's claims | S8, S10 | F7 Welcome | writer |
+| T27 | Dropzone card: drag target, the accepted formats and the **real** size limit, a primary file action and a secondary "open a sample" action that ships a real sample PDF in the app | S1, S10 | F7 Welcome | writer |
+| T28 | **Live three-panel flow, driven by real state**: process state with real progress, the real canvas of the page being read, and the real sections and Markdown produced. This is the step animation, made honest | S2, S5, S10 | F7 Welcome | writer |
+| T29 | Three pillars, privacy banner and footer with the navigation row, all with truthful copy | S8, S10 | F7 Welcome | writer |
+| T30 | Remove the dropzone once a document is loaded, since the top bar already offers "Cargar PDF". **Reaches the top bar its own file input** so loading a second document keeps working | S1, S8 | F7 Welcome | inline |
+| T31 | Verify the welcome: the honest copy holds, the flow panels track real state, the second document loads, and `pnpm test:browser` stays at 8 of 8 | S10 | F7 Welcome | verify |
+| T32 | **Drop zone still visible while the document is loading.** `App.tsx` renders it unconditionally, so it sits there during extraction. **Must land together with T30**, because hiding it without first giving the top bar its own file input is exactly what broke the canvas earlier | S1, S8 | F8 Feedback | inline |
+| T33 | **Markdown looks identical to plain text.** It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
+| T34 | **Heading detection misses bold-only headings**, which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
+| T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
+| T36 | **The selected section card does not look selected.** The active state is an `aria-current` and a border tint that evidently does not read. Make the selected card unmistakable | S5 | F8 Feedback | inline |
 
 ### Note on the redesign, before any of it starts
 
@@ -83,6 +95,9 @@ this fix round is not a Judgment Day; invoking them would be ceremony without a 
 `review-*` lenses belong to the native review lifecycle, which has not been started for any candidate.
 `gentle-ai-explore` is for mapping code before a decision, and T14–T18 are already mapped by the
 verification report, so spending it here would be reading what we can already cite by file and line.
+
+**S10** The welcome screen adopts the landing design in the new `screen.png`, with the mockup's layout and
+**copy audited against what the code actually does** (L44). Any claim the product cannot support is rewritten.
 
 **S9** The interface adopts the *Serene Editorial Glass* design system in `DESIGN.md`. Verbatim: *"es el mockup de lo que quiero que se vea"*.
 
@@ -922,3 +937,239 @@ closed. Files: `tests/PdfDocumentLoader.test.ts`, `src/core/layout/BlockBuilder.
   oversized file, the quality report — must survive it. A prettier shell that hides them would be a regression.
 - The three mockup files stay **untracked and unedited** pending the user's decision on whether they belong in
   the repository at all, given that `screen.png` alone is 393 KB.
+
+**L40** (T19 — verification of T14 to T17. **This one is not independent, and that is stated rather than glossed.**)
+- The delegated verifier failed twice with no output and touched nothing, which is why it is not here. Rather
+  than retry a third time, the parent ran the verification itself. That makes it **self-verification**: it is
+  weaker evidence than L31 was, and it is recorded as such so nobody later reads this entry as an outside
+  check. The pending independent pass is worth doing when a verifier is available again.
+- Claims confirmed by mutation, not by reading: the worker-URL test fails on a wrong default; `BlockBuilder`'s
+  gap `>` to `>=` fails `keeps lines whose gap equals the paragraph leading in one block`; `BlockHitTester`'s
+  bottom `>=` to `>` fails `returns the block for a click exactly on its bottom edge`. All source files were
+  restored byte-identical and the suite returned to 198.
+- Adversarial probing of T14, through the real pipeline:
+  - **three columns → correct.** `A uno A dos` / `B uno B dos` / `C uno C dos`, three separate columns.
+  - **a full-width heading above two columns → correct.** The heading stays one block and the two columns stay
+    separate, which is the case most likely to break a naive cut detector.
+  - **a wide table with a large internal gap → WRONG.** `Concepto Importe Ingresos 1.250 Costes 840` comes out
+    as a **single line**: the detector sees a wide internal whitespace column between the two halves of the
+    table and treats it as a column cut, and then each row stops being a line. Recorded as its own task, since a
+    table is a normal thing to find in a PDF and this is the same class of defect as the one T14 fixed.
+- Adversarial probing of T15:
+  - `franco-` + `aleman` → `franco-aleman`; `co-` + `operar` → `cooperar`. Both correct.
+  - `casa-` + `miento` → `casamiento`; `pasa-` + `porte` → `pasaporte`. Correct: they weld, as they should.
+  - **`tela-` + `rama` → `telarama`, which is wrong.** The word should be hyphenated. It welds only because
+    `tela` is not in the prefix list, and adding every such word is not possible. This is the same calibration
+    limit already recorded in L35 and now demonstrated with a concrete case.
+- The honest conclusion: **the two blockers are fixed for the cases that were reported, and both fixes have a
+  known edge the fixtures do not cover.** T14 fails on tables; T15 fails on compounds outside its list. Neither
+  is a regression, and neither is silent, because both are now named.
+
+**L41** (the wide-table defect found in L40 is fixed. Evidence, and the measurement that located it.)
+- The defect: a two-column table came out as one line, `Concepto Importe Ingresos 1.250 Costes 840`.
+- **Measured before touching anything**, which is what turned a guess into a fix. The raw fragments say
+  exactly what pdf.js did:
+
+  ```
+  "Concepto" x=72.0  w=51.4
+  " "        x=123.4 w=276.6   <- one whitespace run covering the whole table gap
+  "Importe"  x=400.0 w=40.7
+  ```
+
+  Two things follow, and both changed the plan. First, **the lines were already correct**:
+  `["Concepto Importe", "Ingresos 1.250", "Costes 840"]` is exactly the right set of rows, so the line layer
+  needed nothing. Second, the fault was one layer up, in `BlockBuilder`, merging three good rows into one
+  paragraph. Fixing the column detector — the obvious suspect, and where I would have wasted the time — would
+  have been wrong.
+- The signal, now its own class: **a line whose printed runs are separated by more than four times the font
+  size is a table row, not prose.** Whitespace runs are excluded from the measurement, otherwise the 276pt
+  space fragment would be read as the gap itself rather than as the hole it fills.
+- Files: `src/core/layout/TableRowDetector.ts` and its 7 tests, `src/core/constants/TABLE_GAP_RATIO.ts`,
+  `src/core/models/table.ts`, `tests/fixtures/PdfFixtureFactory.ts` (`twoColumnTable`) and a permanent
+  end-to-end test in `tests/extraction.test.ts`.
+- The permanent test asserts the **exact three rows**, not a count, and it was verified to bite: disabling the
+  detector in `BlockBuilder` fails it, pushing the threshold to infinity fails it plus four unit tests, and
+  measuring including the whitespace runs fails it plus two more.
+- Two of my own test expectations were wrong on first write (a 38pt gap against a 40pt threshold, and a case
+  meant to be true that was false). Both were arithmetic mistakes in the test, found by working the numbers by
+  hand, and corrected rather than by loosening the assertion.
+- Evidence: `vitest run` **235 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, and `src/core` at **100% on all four metrics** (314/314 statements, 150/150 branches).
+- `pnpm test:browser` is at **7 of 8**: the rotated-page check is still red and belongs to T24.
+
+**L42** (rotated text layer: the real mechanism identified, one real bug fixed, and one attempt reverted.)
+- The official rules were fetched from `pdf.js/web/pdf_viewer.css` and `text_layer_builder.css` with the
+  user's authorization. They settled a question two guesses had failed to answer.
+- **Real bug found and kept: my rotation rules declared a `transform-origin` the official rules do not have.**
+  pdf.js relies on the default origin; my `transform-origin: 100% 0 / 50% 50% / 0 0` overrode it. Removing
+  them moved the span from `(1520, -320)` to `(728, 471)`, from outside the canvas to inside it. **The earlier
+  selector fix was also real**: `.textLayer [data-main-rotation]` was a descendant selector while pdf.js puts
+  the attribute on the `.textLayer` element itself, and correcting it changed the span from `100x16` to
+  `16x100`. Two independent defects in the same three lines of CSS, and neither had ever been verified.
+- **The remaining blocker is structural, not stylistic, and is now measured rather than guessed:**
+
+  | | visual box |
+  | --- | --- |
+  | canvas | 792 x 612 (already rotated) |
+  | `.textLayer` | 612 x 792 (rotated by CSS) |
+
+  The canvas and the text layer disagree because our renderer asks pdf.js for the **rotated** viewport and
+  paints the rotated bitmap, while pdf.js positions its spans against `rawDims` — the **unrotated**
+  dimensions — and expects its own CSS to rotate the layer into place. Both approaches are self-consistent;
+  mixing them is not.
+- **An attempt to fix it by sizing the text layer from the unrotated viewport was reverted.** It produced a
+  zero-sized layer and, worse, **broke the click-to-copy check that had been passing**, turning a 7-of-8 into
+  something worse. The attempt was made while running low on context, which is exactly when a structural
+  change to the viewer should not be started. It was reverted in full and the suite confirmed back at
+  **235 passed / 1 skipped** with `pnpm test:browser` at 7 of 8 and click-to-copy green again.
+- The honest state: **T24 stays open with one failing check**, and the reason is understood precisely. The
+  fix is to pick one of the two consistent models — either render unrotated and rotate the page container, or
+  stop relying on pdf.js's rotation CSS and position spans against a rotated viewport — and that is a
+  deliberate piece of work, not a CSS tweak. Writing it down beats a third guess.
+
+**L43** (the rotation problem solved, with option (b) chosen by the user: stop relying on pdf.js's rotation CSS.)
+- The measurement in L42 said the two models disagreed: the canvas painted already rotated at 792x612 while
+  css rotated the text layer into 612x792. **The fix was to stop having two models.** pdf.js's `TextLayer` is
+  gone from this viewer; the spans are now placed from our own geometry against the **rotated** viewport, so
+  nothing needs rotating after the fact and the `[data-main-rotation]` rules are deleted outright.
+- Simpler than expected, and the reason is worth recording: **page rotation is always a multiple of 90
+  degrees**, so a mapped fragment box stays axis aligned. Mapping two opposite corners through the existing
+  `CoordinateMapper` is therefore enough, with no per-span css transform and no rotation bookkeeping. That is
+  the whole trick.
+- `TextLayerBuilder` is a class taking the container, the fragments, the mapper and the scale, with 6 tests:
+  one span per non-empty fragment, the y-down flip, the quarter-turn case asserting a 10x20 box, font scaling,
+  and container replacement. `PageRenderer` lost its `TextLayer` and its `getTextContent` call, so a page is
+  also cheaper to render now. `PdfPageView` builds the layer in an effect from `page.model.fragments`.
+- **`pnpm test:browser` is 8 of 8, the first time every check has passed.** The rotated-page check is green.
+- Two real defects in that same css were fixed along the way and are kept: the descendant selector
+  (`.textLayer [data-main-rotation]` against an attribute pdf.js puts on `.textLayer` itself) and a
+  `transform-origin` the official rules do not have. **Both had shipped unverified**, and both were found only
+  because the harness was made to apply the real headers and the checks were actually run.
+- Evidence: `vitest run` **241 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `src/core` at **100% on all four metrics**, no comments in source, `pnpm test:browser` **8/8**.
+- Note on the earlier failure, kept because it is the useful part: the reverted attempt at this same problem
+  broke the click-to-copy check and was reverted in full. It was made while running low on context, which is
+  exactly when a structural change to the viewer should not be started. Choosing the model first, with fresh
+  context, is what made it small.
+
+**L44** (user request, verbatim): *"Agregue un nuevo diseño para la parte de la bienbenida, revisala y agrega las
+tareas para agregar"*
+- `screen.png` and `code.html` came back as **updated versions** (322 KB against 393 KB, 44.7 KB against
+  43.5 KB) and are now a **welcome landing page**, not a viewer mockup. The previous two files had been
+  deleted on the user's instruction; these are new, so the old decision does not carry over.
+- **The copy audit is the finding that matters, and it is the reason this is a task list rather than an
+  implementation.** The mockup promises things this product cannot do:
+
+  | Mockup says | Reality |
+  | --- | --- |
+  | `NUEVO MOTOR NEURONAL V2.4` | There is **no neural network**. Segmentation is geometric heuristics |
+  | `OCR sin alterar tus fuentes` | There is **no OCR at all**; it is an explicit non-goal from L2 |
+  | `Cifrado en reposo` | Nothing is stored, so there is nothing to encrypt |
+  | `hasta 25 MB` | The shipped guard is **100 MB** |
+  | `Análisis < 3,5s` | Unverified, and it depends entirely on the document |
+  | `DocuExtract AI` | The product is *Extractor de texto PDF* |
+  | `tus archivos nunca se emplean para entrenar modelos públicos` | True, but it implies a model exists |
+
+  Shipping that copy would put a false claim on the first screen a user ever sees, which is the opposite of
+  the honest-state discipline this project has followed from L29 onward. **The layout is adopted; the claims
+  are rewritten to what the code actually does.**
+- **The most valuable idea in the mockup, and the one worth building properly: the `Simulación interactiva`
+  section.** Its three panels — process state, page scan, structured output — are the step animation the user
+  asked for earlier, and they can be driven by **real state** rather than faked: the real extraction progress,
+  the real rendered canvas of the page being read, and the real sections and Markdown produced. A canned
+  animation would look the same and teach the user nothing; a real one is honest and costs the same.
+- What is genuinely adoptable as designed: the hero structure (badge, headline, subhead, three feature chips),
+  the dropzone card with a primary and a secondary action, the three `Pilares del flujo` cards, the privacy
+  banner, and the footer with a navigation row.
+- The two mockup files stay **untracked and unedited**, pending the same decision as before.
+
+**L45** (user instruction, verbatim): *"lo del mockup solo era una idea para que armaras la landing, usalo y
+acomdolao a lo que tenemos, no tiene que ser tal cual lo dice ahi; borralos"*
+- `code.html` and `screen.png` are **deleted**, and this time the decision is settled rather than pending:
+  both were references for a layout, not specifications. `DESIGN.md` stays because it holds the tokens the
+  interface actually consumes.
+- **The copy question of L44 is answered: the mockup's claims were never meant literally.** That removes the
+  product-positioning dilemma — there is nothing to reconcile, because nothing in the mockup was a promise.
+  The landing is built from its **structure** and written with the app's own honest wording, in Spanish.
+- What that means for the tasks, concretely:
+  - T26 keeps the hero shape (badge, headline, subhead, chips) and **drops the neural-engine badge entirely**
+    rather than finding a truthful replacement for a claim that was never intended.
+  - T27 keeps the two actions; the limits and the accepted formats are the real ones, and OCR is not named
+    because **there is no OCR**.
+  - T28 keeps the three-panel live flow, which was the genuinely good idea in the mockup and becomes real
+    state instead of a canned animation.
+  - T29 keeps the pillars, the privacy banner and the footer, worded to what the code does.
+- The mockup's own price: it caused this project to spend a full round auditing copy that turned out to be
+  placeholder. Recorded so the next reference image is understood as a reference from the start.
+
+**L46** (T25 closed — the render race. This was the bug behind "el PDF no carga", and it was worse than
+diagnosed: it was never only a development problem.)
+- **The fix, and why it is small:** `PageRenderer` now hands pdf.js a **canvas of its own** and copies the
+  finished bitmap onto the visible canvas with `drawImage`. Two renders that overlap therefore never touch the
+  same canvas, so pdf.js has nothing to refuse. No signature changed, no component changed, no ref changed.
+  That is the whole fix.
+- This replaced an earlier attempt that serialised renders through a `WeakMap`: it **had the same class of
+  defect as the bug it was fixing** — a TOCTOU, because it registered the in-flight render after an `await`,
+  so both calls passed the check before either registered. Fixed to register synchronously, then reverted
+  anyway because the canvas-per-render approach removes the race by construction instead of coordinating it.
+  Coordinating a race is the weaker design.
+- **The finding that matters more than the fix: this race also caused the two unexplained browser failures in
+  production.** The harness uploads several PDFs in one session; each upload replaces `document`, `PdfPage`'s
+  effect re-runs, and a new render began while the previous one was still in flight on the same canvas. pdf.js
+  refused, the canvas came back blank, and the click-to-copy check timed out behind it. What looked like a
+  harness timing problem was **the same bug**, and the fix took the browser check from 6 of 8 back to **8 of 8**.
+- **Verified in `pnpm dev`, which is the point**, because that is where the user hit it and where the browser
+  check cannot look: canvas 612x792 with 1370 painted pixels, 2 text-layer spans, **no alert**, and
+  `Preparando la página` absent. Production is also confirmed: `pnpm test:browser` **8 of 8**.
+- A minor finding, recorded and not fixed: the dev run logs one **404** for an unnamed resource. Nothing in the
+  checks depends on it and I did not identify it, so it is written down rather than guessed at.
+- Evidence: `vitest run` **243 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `src/core` at **100% on all four metrics**, no comments, `pnpm test:browser` **8 of 8**.
+- Two of my own test doubles were wrong on first write and both were the same mistake: a fake page that
+  mutated the canvas size and a guard keyed per page instance instead of per canvas. **pdf.js guards per
+  canvas**; a double that guards per instance cannot show whether the fix works.
+
+**L47** (T26 closed — the welcome hero, built from the mockup's shape and written with the app's own wording.)
+- Files: `src/ui/HeroPanel.tsx` and its 4 tests, `src/ui/constants/HERO_COPY.ts`,
+  `src/ui/constants/HERO_FEATURES.ts`, `src/ui/models/hero.ts`, both barrels, and one line in `App.tsx`.
+- Honest copy, which is the whole point: the badge says **`Todo ocurre en tu navegador`** rather than a neural
+  engine, the headline is **`Copiá texto de un PDF sin separar las palabras a mano`**, and the three chips are
+  things the code does — section detection, plain or Markdown output, and nothing leaving the machine. The
+  mockup's `NUEVO MOTOR NEURONAL V2.4` was **dropped, not replaced**: there was never a claim to restate.
+- **A test states the honesty as a rule rather than trusting it**: `does not claim a neural engine, OCR or
+  encryption that the app does not have` fails if the words neuronal, OCR or cifrado ever appear in this
+  component. The rest of the mockup's copy cannot creep back in unnoticed.
+- **Deliberately did NOT remove the drop zone**, even though it is coming out in T30. Last time three layout
+  changes went in together and two broke; this time the hero was added **above** the drop zone, so the file
+  input never left the DOM and the top bar's load button kept working. One change, verified, then the next.
+- Verified in **both** environments, because production alone would not have caught the earlier failure:
+  `pnpm test:browser` **8 of 8**, and a dev probe showing the hero heading, 3 chips, **exactly 1 file input**
+  before upload, and afterwards a 612x792 canvas with 677 painted pixels, 1 text span, no `Preparando` state
+  and the hero gone.
+- Evidence: `vitest run` **247 passed / 1 skipped**, `tsc` 0, `eslint` 0, `prettier --check` clean,
+  `vite build` 0.
+
+**L48** (T35 decided by the user, verbatim: *"la a"*): **selecting a section and copying it become two separate
+actions.** A click on a section card selects and highlights it; copying moves to its own control, as the mockup
+had it. Copiar sin querer es peor que copiar a propósito, y con la separación el resaltado pasa a ser algo que
+se mira en vez de un efecto secundario de hacer clic.
+
+**L49** (handoff note, written while the session still has context to spare):
+- **The work is not committed.** Everything since `99746cf` lives in the working tree only. A new session finds
+  it on disk, so nothing is lost, but nothing is durable either. **Committing before switching is the single
+  highest-value action available**, and it is the user's call.
+- Where a new session should start reading, in this order: this document up to `## Log` (**L1 to L49 carry every
+  diagnosis**), then `git status` for what is uncommitted, then the todo list.
+- The live threads, in the order they should be picked up:
+  1. **T34 — heading detection misses bold-only headings.** The root cause of the user's whole feedback round:
+     with no heading detected there is one untitled section, which makes Markdown identical to plain text (T33)
+     and makes one click highlight the entire document (T35).
+  2. **T35 — separate selecting from copying**, decided in L48.
+  3. **T36 — the selected card does not look selected.**
+  4. **T32 together with T30** — hiding the drop zone requires giving the top bar its own file input first;
+     doing it the other way round is what broke the canvas earlier.
+  5. Then T27, T28, T29, T31, and the still-pending T29 (the five unpinned boundaries) and the `tela-` + `rama`
+     finding.
+- **What must not be forgotten when picking this up:** `pnpm test:browser` is the only check that sees the
+  canvas, the pdf.js text layer and the real clipboard, and it runs against the **production** build. The
+  StrictMode render race in L46 was invisible to it and only a dev-mode probe found it. **Verify in both.**
