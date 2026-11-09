@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { BlockFactory } from '../../test/BlockFactory';
+import { FragmentFactory } from '../../test/FragmentFactory';
+import { LineFactory } from '../../test/LineFactory';
 import { SectionBuilder } from './SectionBuilder';
 
 const builder = new SectionBuilder();
 const blocks = new BlockFactory();
+const fragments = new FragmentFactory();
+const lines = new LineFactory();
 
 describe('SectionBuilder', () => {
   it('returns no sections when there are no blocks', () => {
@@ -150,6 +154,122 @@ describe('SectionBuilder', () => {
     expect(sections[1]?.blocks).toHaveLength(0);
     expect(sections[2]?.heading).toBe(built[2]);
     expect(sections[2]?.blocks).toHaveLength(2);
+  });
+
+  it('opens a section at a short line drawn in a different font than the body', () => {
+    const built = [
+      blocks.createWithText('Resultados del ejercicio', 12, 'g_d0_f1'),
+      blocks.createWithText('El texto del parrafo empieza aca.', 12, 'g_d0_f2'),
+      blocks.createWithText('Continua en otra linea del cuerpo.', 12, 'g_d0_f2'),
+    ];
+
+    const sections = builder.build(built);
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.heading).toBe(built[0]);
+    expect(sections[0]?.blocks).toHaveLength(2);
+  });
+
+  it('opens a section at a wrapped heading of a few words in another font', () => {
+    const wrapped = blocks.create(
+      [
+        lines.create([
+          fragments.create({ text: 'Resultados del ejercicio', fontName: 'g_d0_f1', fontSize: 12 }),
+        ]),
+        lines.create([
+          fragments.create({ text: 'anual integrado', fontName: 'g_d0_f1', fontSize: 12 }),
+        ]),
+      ],
+      { fontSize: 12 },
+    );
+    const built = [
+      wrapped,
+      blocks.createWithText('El cuerpo del documento uno.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento dos.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento tres.', 12, 'g_d0_f2'),
+    ];
+
+    const sections = builder.build(built);
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.heading).toBe(wrapped);
+  });
+
+  it('does not treat a long line in another font as a heading', () => {
+    const built = [
+      blocks.createWithText(
+        'Una linea larga en otra fuente que no es un titulo sino una cita completa',
+        12,
+        'g_d0_f1',
+      ),
+      blocks.createWithText('El cuerpo del documento uno.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento dos.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento tres.', 12, 'g_d0_f2'),
+    ];
+
+    const sections = builder.build(built);
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.heading).toBeNull();
+  });
+
+  it('does not treat a long multi line passage in another font as a heading', () => {
+    const quote = blocks.create(
+      [
+        lines.create([
+          fragments.create({
+            text: 'Primera linea de la cita.',
+            fontName: 'g_d0_f1',
+            fontSize: 12,
+          }),
+        ]),
+        lines.create([
+          fragments.create({
+            text: 'Segunda linea de la cita.',
+            fontName: 'g_d0_f1',
+            fontSize: 12,
+          }),
+        ]),
+      ],
+      { fontSize: 12 },
+    );
+    const built = [
+      quote,
+      blocks.createWithText('El cuerpo del documento uno.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento dos.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento tres.', 12, 'g_d0_f2'),
+    ];
+
+    const sections = builder.build(built);
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.heading).toBeNull();
+  });
+
+  it('does not treat a small note in another font as a heading', () => {
+    const built = [
+      blocks.createWithText('El cuerpo del documento uno.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento dos.', 12, 'g_d0_f2'),
+      blocks.createWithText('una nota', 8, 'g_d0_f1'),
+    ];
+
+    const sections = builder.build(built);
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.heading).toBeNull();
+  });
+
+  it('does not treat a block with no text as a heading', () => {
+    const built = [
+      blocks.createWithText('   ', 12, 'g_d0_f1'),
+      blocks.createWithText('El cuerpo del documento uno.', 12, 'g_d0_f2'),
+      blocks.createWithText('El cuerpo del documento dos.', 12, 'g_d0_f2'),
+    ];
+
+    const sections = builder.build(built);
+
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.heading).toBeNull();
   });
 
   it('honours an explicit heading font size ratio', () => {

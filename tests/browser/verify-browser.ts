@@ -68,6 +68,10 @@ class BrowserFixtures {
     return this.save('normal.pdf', await this.factory.paragraphs());
   }
 
+  async bold(): Promise<string> {
+    return this.save('bold.pdf', await this.factory.boldHeadings());
+  }
+
   async rotated(): Promise<string> {
     return this.save('rotated.pdf', await this.factory.rotatedPage());
   }
@@ -253,6 +257,28 @@ class BrowserVerifier {
         );
 
         assert.equal(await page.evaluate(() => navigator.clipboard.readText()), expected);
+      },
+    );
+
+    await this.check(
+      'the side panel lists a heading that only differs from the body by its font',
+      async () => {
+        await this.upload(page, await this.fixtures.bold());
+        await page.waitForFunction(
+          () =>
+            (
+              document.querySelector('aside[aria-label="Secciones detectadas"]')?.textContent ?? ''
+            ).includes('Resultados del ejercicio'),
+          { timeout: 30000 },
+        );
+
+        const panel = await page.$eval(
+          'aside[aria-label="Secciones detectadas"]',
+          (element) => element.textContent ?? '',
+        );
+
+        assert.ok(panel.includes('Resultados del ejercicio'), 'the bold heading is missing');
+        assert.ok(panel.includes('Metodologia'), 'the second bold heading is missing');
       },
     );
 

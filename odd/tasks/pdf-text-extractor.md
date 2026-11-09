@@ -2,7 +2,7 @@
 
 Greenfield client-side web app: upload a PDF, reconstruct its text with correct word
 spacing from glyph geometry, then copy any paragraph or section already fixed.
-Status: planning — 0 of 13 tasks closed.
+Status: active — see `## Log`; F8 Feedback in progress (T34 closed in L50, T35 next).
 
 ## Specs
 
@@ -55,7 +55,7 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T31 | Verify the welcome: the honest copy holds, the flow panels track real state, the second document loads, and `pnpm test:browser` stays at 8 of 8 | S10 | F7 Welcome | verify |
 | T32 | **Drop zone still visible while the document is loading.** `App.tsx` renders it unconditionally, so it sits there during extraction. **Must land together with T30**, because hiding it without first giving the top bar its own file input is exactly what broke the canvas earlier | S1, S8 | F8 Feedback | inline |
 | T33 | **Markdown looks identical to plain text.** It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
-| T34 | **Heading detection misses bold-only headings**, which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
+| T34 | **Heading detection misses bold-only headings** — **closed in L50** — which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
 | T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
 | T36 | **The selected section card does not look selected.** The active state is an `aria-current` and a border tint that evidently does not read. Make the selected card unmistakable | S5 | F8 Feedback | inline |
 
@@ -1173,3 +1173,55 @@ se mira en vez de un efecto secundario de hacer clic.
 - **What must not be forgotten when picking this up:** `pnpm test:browser` is the only check that sees the
   canvas, the pdf.js text layer and the real clipboard, and it runs against the **production** build. The
   StrictMode render race in L46 was invisible to it and only a dev-mode probe found it. **Verify in both.**
+
+**L50** (T34 closed — bold-only headings are now detected. The signal was measured, not assumed.)
+- **The premise in T34's own description needed correcting.** It says "pdf.js exposes no font weight", and that
+  is true of `getTextContent()`, which returns an opaque per-document font handle (`g_d0_f1`, `g_d0_f2`,
+  `g_d0_f3` for three embedded standard fonts in one probe). But an opaque handle is still **a distinction**:
+  bold text uses a different font resource than body text, so the handle differs even when the size does not.
+  A probe over a generated PDF with a 12pt HelveticaBold heading over 12pt Helvetica body showed the heading
+  as its own block with handle `g_d0_f1` against the body's `g_d0_f2`. The feet-on-the-ground probe beat the
+  note, which is why the note was probed before it was built on.
+- **The signal shipped** is: a block whose font size is not below the body size, whose assembled text is at most
+  `HEADING_MAXIMUM_WORDS` (8) words, and every one of whose non-empty fragments uses a font handle different
+  from the body's dominant handle, is a heading. The body's dominant font is the mode by fragment count, the
+  same shape as the existing body-size mode. Files: `src/core/layout/SectionBuilder.ts`,
+  `src/core/constants/HEADING_MAXIMUM_WORDS.ts`, both barrels, and the `BlockFactory`/tests.
+- **Centring and vertical spacing from the task text were deliberately not used.** Centring needs a page width
+  that `SectionBuilder` does not receive, and the vertical gap is already consumed by `BlockBuilder` when it
+  decides block boundaries, so neither is available at this layer without widening the model. The font-handle
+  signal is strictly more local and needs no new input.
+- **The single-line guard was written and then deleted.** The project's recurring pattern — a defensive guard
+  that no test can fail is not a guard. A mutation that re-required one line was caught by nothing, because
+  the word cap already excludes the long passage the line guard was meant to exclude. Deleting it also lets a
+  bold heading that wraps onto two lines still be detected, which the line guard would have silently missed.
+  A test now pins that wrapped case instead.
+- **Five mutations, all caught.** Disabling the whole rule → 3 tests; removing the word cap → 2; re-adding the
+  one-line guard → the wrapped-heading test; ignoring the font distinction → 3. Restored byte-identical each
+  time. The two new tests that exist only to keep coverage honest (a small note in another font and a blank
+  block) pin the two branches that were uncovered on the first pass.
+- Coverage went from 100% to 99.4% and back: the new `block.fontSize < bodySize` branch and the
+  `fonts.length > 0` guard were uncovered, and both are real behaviour, so both got a test rather than a
+  deletion. The `fonts.length > 0` guard is not decoration: `[].every(...)` is `true`, so without it a block
+  with no text would classify as a heading.
+- Evidence: `vitest run` **254 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean on every file this task touched, `vite build` 0, `src/core` at **100% on all four metrics**
+  (347/347 statements, 166/166 branches).
+- **Verified in both environments, as L49 demanded.** Production: `pnpm test:browser` **9 of 9 PASS**, the new
+  check being "the side panel lists a heading that only differs from the body by its font". Development: a
+  probe against the dev server showed both bold headings in the panel, a 612x792 canvas with 3318 painted
+  pixels, and no stuck "Preparando" state. The dev probe's one console 404 is the pre-existing unnamed
+  resource already recorded in L46.
+
+**L51** (environment findings recorded while T34 ran; neither is caused by T34.)
+- **Engram is broken by a version mismatch, and that is why memory is unavailable in this session.** The
+  running server is `engram 3.1.0` (pid on port 7437, `/health` answers with `version: 3.1.0`), while the
+  `gentle-engram` 0.6.0 Pi plugin expects the `engram.pi-http-runtime/v1` contract at `/runtime-contract`.
+  That route returns **404** on 3.1.0; the plugin rejects the runtime and blocks every memory dispatch, which
+  is the failure the user had been told about. The Homebrew tap already offers **3.6.0**, which is where the
+  route exists. The fix is `brew upgrade engram` (or the tap formula) and a server restart, but it is a
+  machine-level change and was **not performed without authorization**.
+- **`src/ui/constants/HERO_COPY.ts` is committed and does not pass `prettier --check`.** `HERO_NOTE` is 104
+  characters on one line against a print width of 100; Prettier wants it wrapped. The commit `6e3ee73`
+  message claims formatting was clean, so this is a false claim in that message. Left untouched here because
+  it is unrelated to T34 and the rule is one change at a time; it needs its own one-line fix.

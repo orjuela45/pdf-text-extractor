@@ -18,11 +18,18 @@ export class BlockFactory {
     };
   }
 
-  createWithText(text: string, fontSize = 10): TextBlock {
+  createWithText(text: string, fontSize = 10, fontName = 'g_d0_f1'): TextBlock {
     return this.create(
       [
         this.lines.create([
-          this.fragments.create({ text, x: 72, y: 700, width: text.length * 5, fontSize }),
+          this.fragments.create({
+            text,
+            x: 72,
+            y: 700,
+            width: text.length * 5,
+            fontSize,
+            fontName,
+          }),
         ]),
       ],
       { fontSize },

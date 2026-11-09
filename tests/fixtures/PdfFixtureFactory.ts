@@ -145,6 +145,22 @@ end`;
     return await document.save();
   }
 
+  async boldHeadings(): Promise<Uint8Array> {
+    const document = await PDFDocument.create({ updateMetadata: false });
+    const page = document.addPage([612, 792]);
+    const body = await document.embedStandardFont(StandardFonts.Helvetica);
+    const bold = await document.embedStandardFont(StandardFonts.HelveticaBold);
+
+    this.draw(page, bold, 'Resultados del ejercicio', 72, 700, 12);
+    this.draw(page, body, 'El texto del parrafo empieza aca', 72, 670, 12);
+    this.draw(page, body, 'y sigue en la linea del cuerpo', 72, 656, 12);
+    this.draw(page, bold, 'Metodologia', 72, 610, 12);
+    this.draw(page, body, 'La segunda seccion del cuerpo', 72, 580, 12);
+    this.draw(page, body, 'con otra linea de parrafo', 72, 566, 12);
+
+    return await document.save();
+  }
+
   async noTextLayer(): Promise<Uint8Array> {
     const { document, page } = await this.createPage();
     page.drawRectangle({ x: 72, y: 700, width: 200, height: 40 });

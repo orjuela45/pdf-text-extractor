@@ -92,4 +92,14 @@ describe('PDF extraction end to end', () => {
 
     expect(result.blockTexts(0)).toEqual(['Concepto Importe', 'Ingresos 1.250', 'Costes 840']);
   });
+
+  it('detects headings that only differ from the body by the font they use', async () => {
+    const result = await pipeline.run(await fixtures.boldHeadings());
+
+    expect(result.sectionHeadingTexts()).toEqual(['Resultados del ejercicio', 'Metodologia']);
+    expect(result.sectionBodyTexts()).toEqual([
+      ['El texto del parrafo empieza aca y sigue en la linea del cuerpo'],
+      ['La segunda seccion del cuerpo con otra linea de parrafo'],
+    ]);
+  });
 });
