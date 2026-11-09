@@ -85,11 +85,7 @@ export function App() {
         zoom={zoom}
         onPageChange={setPage}
         onZoomChange={(next) => setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next)))}
-        onLoad={() => {
-          const input = window.document.querySelector<HTMLInputElement>('input[type="file"]');
-
-          input?.click();
-        }}
+        onFile={(chosen) => void open(chosen)}
       />
 
       <main className="flex min-h-0 flex-1 flex-col gap-4 p-4">
@@ -97,7 +93,9 @@ export function App() {
 
         {!showDocument ? <HeroPanel /> : null}
 
-        <Dropzone onFile={(chosen) => void open(chosen)} disabled={status === 'loading'} />
+        {!showDocument && status !== 'loading' ? (
+          <Dropzone onFile={(chosen) => void open(chosen)} />
+        ) : null}
 
         <CopyFeedback outcome={feedback} onDismiss={() => setFeedback(EMPTY_OUTCOME)} />
 

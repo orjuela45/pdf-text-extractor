@@ -1,3 +1,4 @@
+import { useRef, type ChangeEvent } from 'react';
 import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './constants';
 
 export interface TopBarProps {
@@ -8,7 +9,7 @@ export interface TopBarProps {
   readonly zoom: number;
   readonly onPageChange: (page: number) => void;
   readonly onZoomChange: (zoom: number) => void;
-  readonly onLoad: () => void;
+  readonly onFile: (file: File) => void;
 }
 
 const FOCUS_STYLE =
@@ -24,9 +25,18 @@ export function TopBar({
   zoom,
   onPageChange,
   onZoomChange,
-  onLoad,
+  onFile,
 }: TopBarProps) {
   const hasDocument = pageCount > 0;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0];
+
+    if (file !== undefined) {
+      onFile(file);
+    }
+  };
 
   return (
     <header className="glass-bar flex flex-wrap items-center gap-3 border-b border-outline-variant/60 px-4 py-2.5">
@@ -118,10 +128,18 @@ export function TopBar({
         <button
           type="button"
           className={`rounded-md bg-primary px-3.5 py-2 text-xs font-medium text-on-primary transition-colors hover:bg-primary-container ${FOCUS_STYLE}`}
-          onClick={onLoad}
+          onClick={() => inputRef.current?.click()}
         >
           Cargar PDF
         </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          className="sr-only"
+          aria-label="Cargar PDF"
+          onChange={handleChange}
+        />
       </div>
     </header>
   );

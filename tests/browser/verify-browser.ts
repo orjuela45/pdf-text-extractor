@@ -345,6 +345,19 @@ class BrowserVerifier {
       assert.equal(marks, 1, 'the selected card is not distinctly marked');
     });
 
+    await this.check('the drop zone goes away once a document is loaded', async () => {
+      await this.upload(page, await this.fixtures.bold());
+      await page.waitForFunction(() => document.querySelectorAll('.textLayer span').length > 0, {
+        timeout: 30000,
+      });
+
+      const dropzone = await page.$('[aria-label="Zona para cargar el PDF"]');
+      assert.equal(dropzone, null, 'the drop zone is still mounted after loading');
+
+      const input = await page.$('input[type=file]');
+      assert.ok(input !== null, 'the top bar lost its own file input');
+    });
+
     await this.check(
       'a rotated page renders sideways-turned and still copies the right text',
       async () => {

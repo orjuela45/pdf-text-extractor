@@ -51,9 +51,9 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T27 | Dropzone card: drag target, the accepted formats and the **real** size limit, a primary file action and a secondary "open a sample" action that ships a real sample PDF in the app | S1, S10 | F7 Welcome | writer |
 | T28 | **Live three-panel flow, driven by real state**: process state with real progress, the real canvas of the page being read, and the real sections and Markdown produced. This is the step animation, made honest | S2, S5, S10 | F7 Welcome | writer |
 | T29 | Three pillars, privacy banner and footer with the navigation row, all with truthful copy | S8, S10 | F7 Welcome | writer |
-| T30 | Remove the dropzone once a document is loaded, since the top bar already offers "Cargar PDF". **Reaches the top bar its own file input** so loading a second document keeps working | S1, S8 | F7 Welcome | inline |
+| T30 | Remove the dropzone once a document is loaded, since the top bar already offers "Cargar PDF". — **closed in L54, together with T32** — **Reaches the top bar its own file input** so loading a second document keeps working | S1, S8 | F7 Welcome | inline |
 | T31 | Verify the welcome: the honest copy holds, the flow panels track real state, the second document loads, and `pnpm test:browser` stays at 8 of 8 | S10 | F7 Welcome | verify |
-| T32 | **Drop zone still visible while the document is loading.** `App.tsx` renders it unconditionally, so it sits there during extraction. **Must land together with T30**, because hiding it without first giving the top bar its own file input is exactly what broke the canvas earlier | S1, S8 | F8 Feedback | inline |
+| T32 | **Drop zone still visible while the document is loading.** — **closed in L54, together with T30** — `App.tsx` renders it unconditionally, so it sits there during extraction. **Must land together with T30**, because hiding it without first giving the top bar its own file input is exactly what broke the canvas earlier | S1, S8 | F8 Feedback | inline |
 | T33 | **Markdown looks identical to plain text.** It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
 | T34 | **Heading detection misses bold-only headings** — **closed in L50** — which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
 | T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** — **closed in L52** — Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
@@ -1280,3 +1280,26 @@ se mira en vez de un efecto secundario de hacer clic.
   not claimed for dev.
 - Evidence: `vitest run` **256 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
   clean, `src/core` at **100% on all four metrics**, `pnpm test:browser` **11 of 11 PASS**.
+
+**L54** (T30 + T32 closed together, as the task demanded — the drop zone leaves when the document arrives.)
+- **They landed in one work unit on purpose.** Hiding the drop zone without first giving the top bar its own file
+  input is exactly what broke the canvas in an earlier round, so the two are inseparable and share one commit.
+- **The top bar now owns its file input.** `TopBar` takes `onFile` instead of `onLoad`, holds a ref to its own
+  hidden `<input type="file">`, and the `Cargar PDF` button clicks that ref. `App` no longer reaches into
+  `window.document` for `input[type="file"]`, which was the coupling that would have broken the moment the drop
+  zone unmounted.
+- **The drop zone renders only when there is no document and nothing is loading:**
+  `{!showDocument && status !== 'loading' ? <Dropzone … /> : null}`. It still shows after an error, so a failed
+  file can be retried from the page.
+- **Test-first, RED observed.** `TopBar.test.tsx` failed twice against the old component (no file input, so
+  `Unable to find a label with the text of: Cargar PDF`). The loading state is pinned in `App.test.tsx` with the
+  hook mocked, which is the only way to drive `status: 'loading'` in jsdom. Mutation: dropping the
+  `status !== 'loading'` guard fails "hides the drop zone while a document is loading".
+- Evidence: `vitest run` **259 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `src/core` at **100% on all four metrics**, `pnpm test:browser` **12 of 12 PASS** with the new check
+  "the drop zone goes away once a document is loaded".
+- **Dev probe:** before loading there are **2** file inputs and the drop zone; after loading there is exactly
+  **1** input — the top bar's — and no drop zone. That is the whole change, observed in both environments.
+- Recorded because it changes the harness: with two inputs while idle, `page.$('input[type=file]')` now picks the
+  top bar's, and after loading the top bar's is the only one. The existing `upload` helper keeps working for the
+  same reason it was already fragile-with-one-input: it always takes the first match.
