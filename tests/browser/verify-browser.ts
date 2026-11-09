@@ -7,6 +7,7 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { type Browser, type Page, launch } from 'puppeteer-core';
 
 import { PdfFixtureFactory } from '../fixtures/PdfFixtureFactory.ts';
+import { NetlifyHeaderReader } from './NetlifyHeaderReader.ts';
 
 const CONTENT_TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -18,8 +19,10 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 const QPDF = '/usr/bin/qpdf';
+const NETLIFY_CONFIG = resolve(import.meta.dirname, '../../netlify.toml');
 
 class StaticServer {
+  private readonly headers = new NetlifyHeaderReader(readFileSync(NETLIFY_CONFIG, 'utf8'));
   private server: Server | null = null;
 
   async start(root: string): Promise<number> {
@@ -37,6 +40,7 @@ class StaticServer {
 
       response.writeHead(200, {
         'content-type': CONTENT_TYPES[extname(filePath)] ?? 'application/octet-stream',
+        ...this.headers.valuesFor(pathname === '/' ? '/index.html' : pathname),
       });
       response.end(readFileSync(filePath));
     });
@@ -142,6 +146,21 @@ class BrowserVerifier {
 
     await page.setViewport({ width: 1280, height: 900 });
     await page.goto(origin, { waitUntil: 'networkidle0' });
+
+    await this.check('the served document carries the security headers', async () => {
+      const response = await page.goto(origin, { waitUntil: 'domcontentloaded' });
+      assert.ok(response !== null, 'no response for the document');
+      const headers = response.headers();
+
+      assert.ok(
+        (headers['content-security-policy'] ?? '').includes("default-src 'self'"),
+        `content-security-policy missing or unexpected: ${headers['content-security-policy'] ?? 'absent'}`,
+      );
+      assert.equal(headers['x-content-type-options'], 'nosniff');
+      assert.equal(headers['x-frame-options'], 'DENY');
+      assert.equal(headers['referrer-policy'], 'no-referrer');
+      assert.equal(headers['cross-origin-opener-policy'], 'same-origin');
+    });
 
     await this.check('the app loads with the product name and no console errors', async () => {
       const heading = await page.$eval('h1', (element) => element.textContent);

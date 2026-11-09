@@ -844,3 +844,29 @@ closed. Files: `tests/PdfDocumentLoader.test.ts`, `src/core/layout/BlockBuilder.
 - Note the shape of this task: it is a **test-quality** task with no behaviour change, and the parent verified
   it by re-running the mutations rather than by reading the diff. A test that pins nothing looks identical to a
   test that pins everything until you try to break it.
+
+**L38** (T17 closed — the false claim is now true, and verified by observation rather than by reading config).
+- The defect: `tests/browser/verify-browser.ts` started its own static server that wrote **only** `content-type`
+  (line 38), so the security headers from `netlify.toml` were never applied. The claim that `preview.headers`
+  made the browser check exercise the CSP was therefore false, as the independent verification had already
+  reported by probing a response.
+- Fix: `tests/browser/NetlifyHeaderReader.ts` parses `netlify.toml`, the static server applies the matching
+  rules per path, and a new check **asserts the headers are present on the response**:
+  `the served document carries the security headers`. `vite.config.ts` no longer keeps its own copy of the
+  policy; it reads the same `netlify.toml` through the same reader, so the two cannot drift. There is now
+  **one** declaration and **one** presence assertion, where there used to be two declarations and none.
+- Evidence, observed rather than inferred: `pnpm test:browser` is **8/8 PASS** with the headers actually
+  applied, which also proves for the first time that the app runs **under** the policy — worker, wasm, blob
+  URL, text layer and clipboard all still work with it in force. The new check bites: removing the headers
+  from the server fails it with `content-security-policy missing or unexpected: absent`.
+- The delegated writer for this task **failed with no output and left the tree completely clean**, so nothing
+  was half-applied. The parent took the task inline. Recorded because a failed delegation is not a failed
+  task, and the honest thing is to say which one it was.
+- **Unrelated files appeared in the working tree during this work** — `DESIGN.md`, `code.html`, `screen.png`,
+  all untracked and all created at 15:08 while this session was running. They are not mine, they are a design
+  system and a screenshot, and they are **left alone**: not committed, not formatted, not deleted. Their
+  presence made the repository-wide `format:check` fail, so formatting was verified against this task's own
+  files instead of reporting a false failure. Whoever created them should decide their fate.
+- Still unverified, by definition: the **real Netlify deploy**. The policy is now exercised locally against the
+  same source of truth, which is strictly more than before, but no header has been observed on a Netlify
+  response and `docs/netlify-deploy.md` keeps telling the user to watch the console on that first deploy.

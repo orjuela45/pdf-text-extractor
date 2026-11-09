@@ -1,32 +1,19 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "script-src 'self' 'wasm-unsafe-eval'",
-  "worker-src 'self' blob:",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'none'",
-  "frame-ancestors 'none'",
-].join('; ');
+import { NetlifyHeaderReader } from './tests/browser/NetlifyHeaderReader.ts';
+
+const netlifyConfig = new NetlifyHeaderReader(
+  readFileSync(resolve(import.meta.dirname, 'netlify.toml'), 'utf8'),
+);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   preview: {
-    headers: {
-      'Content-Security-Policy': contentSecurityPolicy,
-      'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY',
-      'Referrer-Policy': 'no-referrer',
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Permissions-Policy': 'clipboard-write=(self), geolocation=(), camera=(), microphone=()',
-    },
+    headers: netlifyConfig.valuesFor('/index.html'),
   },
   test: {
     environment: 'node',
