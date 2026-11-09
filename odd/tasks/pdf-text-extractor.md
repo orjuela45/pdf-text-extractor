@@ -57,7 +57,7 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T33 | **Markdown looks identical to plain text.** It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
 | T34 | **Heading detection misses bold-only headings** — **closed in L50** — which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
 | T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** — **closed in L52** — Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
-| T36 | **The selected section card does not look selected.** The active state is an `aria-current` and a border tint that evidently does not read. Make the selected card unmistakable | S5 | F8 Feedback | inline |
+| T36 | **The selected section card does not look selected.** — **closed in L53** — The active state is an `aria-current` and a border tint that evidently does not read. Make the selected card unmistakable | S5 | F8 Feedback | inline |
 
 ### Note on the redesign, before any of it starts
 
@@ -1252,3 +1252,29 @@ se mira en vez de un efecto secundario de hacer clic.
   clean, `src/core` still at **100% on all four metrics**, `pnpm test:browser` **10 of 10 PASS** with the new
   check "selecting a section highlights only its heading, not every paragraph", and a dev probe showing exactly
   **1** highlight box with the label "Sección activa: Seccion uno".
+
+**L53** (T36 closed — the selected card is unmistakable, and the check to prove it found a stale-selection bug.)
+- **Test-first, RED observed.** The new component test asserts `Seleccionada` is absent before the click and present
+  after it; against the unmodified component it failed with `Unable to find an element with the text:
+  Seleccionada`, which is the RED. A mutation that removes the marker brings it back to 1 failed, so the test
+  pins the marker and not the surrounding markup.
+- **What the selected card now carries:** a `ring-2` halo, a heavier background wash, the heading in primary
+  typography, and a visible `Seleccionada` pill next to the page number. All four together, because the task is
+  explicit that a border tint alone did not read. Files: `src/ui/OutlinePanel.tsx` and its test.
+- **The production check caught a real bug on its first run, and the bug was not in the marker.** My first
+  version of the check re-uploaded the *same* fixture the previous check had used and then clicked the card.
+  The production run went `FAIL ... Waiting failed: 10000ms exceeded`, while the dev probe and the unit test
+  were green. The reason: `App` never reset `activeSection` when a document changed, so the previous check's
+  selection was still index 0 and the click **toggled it off**. That is a genuine defect — loading a different
+  PDF could highlight a stale section index in the new document — not merely a test artifact.
+- **Two fixes, and the distinction matters.** The application now calls `setActiveSection(null)` in the same
+  document-change block that already resets the page. The check was also made independent of run order by
+  uploading a *different* fixture, so a green result does not depend on what the previous check left behind.
+  With both, production is **11 of 11 PASS** including "the selected section card is visibly marked as
+  selected".
+- **Honest note on where each half was observed:** the visual marker was verified in dev (marker absent before
+  the click, exactly 1 after, `ring-2` present, `aria-current` true) and in production; the stale-selection
+  reset was only observable through the production harness, because the dev probe used a single upload. It is
+  not claimed for dev.
+- Evidence: `vitest run` **256 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `src/core` at **100% on all four metrics**, `pnpm test:browser` **11 of 11 PASS**.

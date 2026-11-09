@@ -317,6 +317,34 @@ class BrowserVerifier {
       },
     );
 
+    await this.check('the selected section card is visibly marked as selected', async () => {
+      await this.upload(page, await this.fixtures.bold());
+      await page.waitForFunction(
+        () =>
+          (
+            document.querySelector('aside[aria-label="Secciones detectadas"]')?.textContent ?? ''
+          ).includes('Resultados del ejercicio'),
+        { timeout: 30000 },
+      );
+
+      await this.clickSectionCard(page, 'Resultados del ejercicio');
+      await page.waitForFunction(
+        () =>
+          Array.from(
+            document.querySelectorAll('aside[aria-label="Secciones detectadas"] span'),
+          ).some((element) => element.textContent === 'Seleccionada'),
+        { timeout: 10000 },
+      );
+
+      const marks = await page.evaluate(
+        () =>
+          Array.from(
+            document.querySelectorAll('aside[aria-label="Secciones detectadas"] span'),
+          ).filter((element) => element.textContent === 'Seleccionada').length,
+      );
+      assert.equal(marks, 1, 'the selected card is not distinctly marked');
+    });
+
     await this.check(
       'a rotated page renders sideways-turned and still copies the right text',
       async () => {

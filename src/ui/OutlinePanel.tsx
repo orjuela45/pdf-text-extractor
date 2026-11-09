@@ -69,7 +69,7 @@ export function OutlinePanel({
                   <div
                     className={`rounded-lg border transition-colors duration-150 ${
                       isActive
-                        ? 'border-primary-container bg-secondary-container/40'
+                        ? 'border-primary-container bg-secondary-container/60 ring-2 ring-primary-container/40'
                         : 'border-outline-variant/70 bg-surface-lowest/80 hover:border-primary-container/60'
                     }`}
                     style={{
@@ -86,14 +86,23 @@ export function OutlinePanel({
                       }}
                     >
                       <span className="flex items-start justify-between gap-2">
-                        <span className="font-serif text-sm leading-snug font-medium text-on-surface">
+                        <span
+                          className={`font-serif text-sm leading-snug font-medium ${isActive ? 'text-primary' : 'text-on-surface'}`}
+                        >
                           {entry.heading}
                         </span>
-                        {entry.page > 0 ? (
-                          <span className="shrink-0 rounded-full bg-surface-container px-2 py-0.5 text-[0.6875rem] text-on-surface-variant">
-                            Pág. {entry.page}
-                          </span>
-                        ) : null}
+                        <span className="flex shrink-0 flex-col items-end gap-1">
+                          {isActive ? (
+                            <span className="rounded-full bg-primary-container px-2 py-0.5 text-[0.6875rem] font-medium text-on-primary">
+                              Seleccionada
+                            </span>
+                          ) : null}
+                          {entry.page > 0 ? (
+                            <span className="rounded-full bg-surface-container px-2 py-0.5 text-[0.6875rem] text-on-surface-variant">
+                              Pág. {entry.page}
+                            </span>
+                          ) : null}
+                        </span>
                       </span>
                       <span className="mt-1 block line-clamp-2 text-xs leading-relaxed text-on-surface-variant">
                         {entry.text}

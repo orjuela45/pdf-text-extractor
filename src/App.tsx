@@ -45,6 +45,7 @@ export function App() {
   if (pageKey !== documentKey) {
     setPageKey(documentKey);
     setPage(1);
+    setActiveSection(null);
   }
   const writer = useMemo(() => new DocumentTextWriter(), []);
 

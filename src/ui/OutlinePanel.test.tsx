@@ -88,6 +88,25 @@ describe('OutlinePanel', () => {
     expect(second?.style.marginInlineStart).toBe('1rem');
   });
 
+  it('marks the selected section with a visible label, not only a border tint', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OutlinePanel
+        entries={entries}
+        onSelectSection={vi.fn()}
+        onCopySection={vi.fn()}
+        onCopyAll={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText('Seleccionada')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^Introducción/ }));
+
+    expect(screen.getByText('Seleccionada')).toBeInTheDocument();
+  });
+
   it('copies the whole document through a keyboard reachable control', async () => {
     const onCopyAll = vi.fn();
     const user = userEvent.setup();
