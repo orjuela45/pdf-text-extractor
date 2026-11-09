@@ -12,6 +12,11 @@ const netlifyConfig = new NetlifyHeaderReader(
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: {
+    watch: {
+      ignored: ['**/coverage/**', '**/dist/**'],
+    },
+  },
   preview: {
     headers: netlifyConfig.valuesFor('/index.html'),
   },
