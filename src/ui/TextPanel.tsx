@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DocumentTextWriter } from './DocumentTextWriter';
+import { NO_STRUCTURE_NOTICE } from './constants';
 import type { TextSection } from '../core/models';
 import type { TextView } from './models/view';
 
@@ -17,6 +18,7 @@ export function TextPanel({ sections, onCopy, writer = new DocumentTextWriter() 
 
   const text = useMemo(() => writer.view(sections, view), [writer, sections, view]);
   const words = useMemo(() => writer.words(text), [writer, text]);
+  const hasStructure = sections.some((section) => section.heading !== null);
 
   return (
     <section
@@ -57,6 +59,11 @@ export function TextPanel({ sections, onCopy, writer = new DocumentTextWriter() 
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+        {view === 'markdown' && !hasStructure && text !== '' ? (
+          <p className="mb-3 rounded-md bg-surface-container px-3 py-2 text-xs text-on-surface-variant">
+            {NO_STRUCTURE_NOTICE}
+          </p>
+        ) : null}
         {text === '' ? (
           <p className="text-sm text-on-surface-variant">Todavía no hay texto extraído.</p>
         ) : (

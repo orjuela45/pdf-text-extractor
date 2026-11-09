@@ -62,6 +62,25 @@ describe('TextPanel', () => {
     expect(screen.getByText('Todavía no hay texto extraído.')).toBeInTheDocument();
   });
 
+  it('says plainly that the document has no detected structure in markdown', async () => {
+    const user = userEvent.setup();
+    const flat = [sections.create({ heading: null, level: 0 })];
+
+    render(<TextPanel sections={flat} onCopy={vi.fn()} />);
+    await user.click(screen.getByRole('tab', { name: 'Markdown' }));
+
+    expect(screen.getByText(/no tiene títulos detectados/i)).toBeInTheDocument();
+  });
+
+  it('does not claim a missing structure when a heading was detected', async () => {
+    const user = userEvent.setup();
+
+    render(<TextPanel sections={built} onCopy={vi.fn()} />);
+    await user.click(screen.getByRole('tab', { name: 'Markdown' }));
+
+    expect(screen.queryByText(/no tiene títulos detectados/i)).not.toBeInTheDocument();
+  });
+
   it('marks the active tab as selected for assistive technology', async () => {
     const user = userEvent.setup();
 

@@ -54,7 +54,7 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T30 | Remove the dropzone once a document is loaded, since the top bar already offers "Cargar PDF". — **closed in L54, together with T32** — **Reaches the top bar its own file input** so loading a second document keeps working | S1, S8 | F7 Welcome | inline |
 | T31 | Verify the welcome: the honest copy holds, the flow panels track real state, the second document loads, and `pnpm test:browser` stays at 8 of 8 | S10 | F7 Welcome | verify |
 | T32 | **Drop zone still visible while the document is loading.** — **closed in L54, together with T30** — `App.tsx` renders it unconditionally, so it sits there during extraction. **Must land together with T30**, because hiding it without first giving the top bar its own file input is exactly what broke the canvas earlier | S1, S8 | F8 Feedback | inline |
-| T33 | **Markdown looks identical to plain text.** It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
+| T33 | **Markdown looks identical to plain text.** — **closed in L55** — It only differs by headings and bullet lists, so on a document where no heading was detected the two views are byte-identical and the tab looks broken. The view needs to differ in ways that are honest and visible, or say plainly that the document has no detected structure | S5 | F8 Feedback | writer |
 | T34 | **Heading detection misses bold-only headings** — **closed in L50** — which is why a whole document collapses into one untitled section. pdf.js exposes no font weight, so this needs another signal: short centred lines, vertical spacing before a line, or digit-and-dot numbering already covered. This is the root cause of T33 and T35 | S2, S5 | F8 Feedback | writer |
 | T35 | **Clicking a section highlights every paragraph in it, which reads as wrong.** — **closed in L52** — Choose between highlighting the section's heading only, highlighting its first block with a lighter tint for the rest, or outlining the section as one region. Then separate **selecting** a section from **copying** it, because today one click does both | S4, S5 | F8 Feedback | writer |
 | T36 | **The selected section card does not look selected.** — **closed in L53** — The active state is an `aria-current` and a border tint that evidently does not read. Make the selected card unmistakable | S5 | F8 Feedback | inline |
@@ -1303,3 +1303,21 @@ se mira en vez de un efecto secundario de hacer clic.
 - Recorded because it changes the harness: with two inputs while idle, `page.$('input[type=file]')` now picks the
   top bar's, and after loading the top bar's is the only one. The existing `upload` helper keeps working for the
   same reason it was already fragile-with-one-input: it always takes the first match.
+
+**L55** (T33 closed — the Markdown view says when there is no structure, instead of looking broken.)
+- **The honest half of the task was chosen over inventing formatting.** T33 allows either making the views differ
+  or stating plainly that the document has no detected structure. With no heading detected there is genuinely
+  nothing to turn into Markdown, so the second option is the truthful one; inventing a visual difference would
+  be cosmetic. The Markdown view now shows, above the text,
+  "Este documento no tiene títulos detectados: el Markdown se ve igual que el texto plano."
+- Files: `src/ui/TextPanel.tsx`, `src/ui/constants/NO_STRUCTURE_NOTICE.ts`, the constants barrel, and
+  `src/ui/TextPanel.test.tsx`.
+- **Test-first, RED observed:** the notice test failed against the unmodified panel with
+  `Unable to find an element with the text: /no tiene títulos detectados/i`. Two mutations, both caught: never
+  showing the notice fails the positive test, and always showing it fails the negative one.
+- **Note the interaction with T34:** a document whose headings are bold is now detected as structured, so the
+  notice correctly stays away there; it appears only for genuinely flat documents. Both branches are covered by
+  a dev probe — notice `true` for the flat fixture and `false` for the bold-headings fixture.
+- Evidence: `vitest run` **261 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `src/core` at **100% on all four metrics**, `pnpm test:browser` **13 of 13 PASS** with the new check
+  "the markdown view says when the document has no detected structure".

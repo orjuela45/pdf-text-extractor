@@ -359,6 +359,27 @@ class BrowserVerifier {
     });
 
     await this.check(
+      'the markdown view says when the document has no detected structure',
+      async () => {
+        await this.upload(page, await this.fixtures.normal());
+        await page.waitForFunction(() => document.querySelectorAll('.textLayer span').length > 0, {
+          timeout: 30000,
+        });
+
+        await this.clickButton(page, 'Markdown');
+        await page.waitForFunction(
+          () => (document.body.textContent ?? '').includes('no tiene títulos detectados'),
+          { timeout: 10000 },
+        );
+
+        const shown = await page.evaluate(() =>
+          (document.body.textContent ?? '').includes('no tiene títulos detectados'),
+        );
+        assert.ok(shown, 'the markdown view did not state the missing structure');
+      },
+    );
+
+    await this.check(
       'a rotated page renders sideways-turned and still copies the right text',
       async () => {
         await this.upload(page, await this.fixtures.rotated());
