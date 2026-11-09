@@ -1,4 +1,4 @@
-import { SPACE_GAP_TOLERANCE_RATIO } from '../constants';
+import { COMPOUND_PREFIXES, SPACE_GAP_TOLERANCE_RATIO } from '../constants';
 import type {
   LineAssembly,
   TextAssemblerConfig,
@@ -54,22 +54,27 @@ export class TextAssembler {
   }
 
   assembleBlock(block: TextBlock): string {
+    return this.joinLines(
+      block.lines.map((line) => this.assembleLine(line)).filter((text) => text !== ''),
+    ).trim();
+  }
+
+  private joinLines(lines: readonly string[]): string {
     let result = '';
+    let previous = '';
 
-    for (const line of block.lines) {
-      const text = this.assembleLine(line);
-
-      if (text === '') {
-        continue;
-      }
-
+    for (const text of lines) {
       if (result === '') {
         result = text;
-      } else if (this.isHyphenatedBreak(result, text)) {
+      } else if (this.endsWithCompoundHyphen(previous)) {
+        result = `${result}${text}`;
+      } else if (this.isHyphenatedBreak(previous, text)) {
         result = `${result.slice(0, -1)}${text}`;
       } else {
         result = `${result} ${text}`;
       }
+
+      previous = text;
     }
 
     return result;
@@ -77,6 +82,13 @@ export class TextAssembler {
 
   private isHyphenatedBreak(previous: string, next: string): boolean {
     return /\p{L}-$/u.test(previous) && /\p{Ll}/u.test(next.charAt(0));
+  }
+
+  private endsWithCompoundHyphen(previous: string): boolean {
+    const stem = previous.slice(0, -1);
+    const lastWord = stem.split(/\s/).pop() as string;
+
+    return COMPOUND_PREFIXES.has(lastWord.toLowerCase());
   }
 
   private join(previous: TextFragment, next: TextFragment): TextJoinDecision {

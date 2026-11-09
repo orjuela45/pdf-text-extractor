@@ -759,3 +759,39 @@ para corregir los errores y levanta el proyecto para ver como va"*
 - **Not yet verified by anyone but me.** This is my own fix checked by my own tests. T19 exists to have it
   independently confirmed, and until then the honest claim is "the regression probe passes", not "the blocker
   is gone".
+
+**L35** (T15 closed — the compound-hyphen blocker is fixed. Evidence, and the calibration that made it work.)
+- Fix: `TextAssembler` now decides a hyphenated line break with **two** rules instead of one. A hyphen is
+  dropped only when it is the one the line break itself put between a stem and its continuation, and it is
+  **kept** when the word before it is a known compound prefix. Files: `src/core/text/TextAssembler.ts` and
+  its tests, `src/core/constants/COMPOUND_PREFIXES.ts`, `src/core/constants/index.ts`,
+  `tests/fixtures/PdfFixtureFactory.ts` (`hyphenCompound`), `tests/hyphenCompound.test.ts`.
+- Regression probe written and observed **RED before any production change**:
+  `El acuerdo fue francoaleman y beneficioso` for `franco-` + `aleman`, exactly the defect the independent
+  verification reported. It now yields `franco-aleman`, while `extra-` + `ordinario` still yields
+  `extraordinario` and `co-` + `operar` still yields `cooperar`.
+- **The honest shape of this fix: it is calibrated, not correct.** `co-` is genuinely ambiguous between the
+  Latin prefix and the ordinary start of a word, and no prefix list can tell them apart. The first draft
+  listed the Latin prepositions (`ex`, `anti`, `pro`, `co`, `pre`, `post`…) and **broke the existing
+  `cooperar` case**. The shipped list keeps only what is unambiguously a compound — `franco`, `anglo`,
+  `hispano`, `italo`, `bien`, `mal`, `tipo` — and therefore **deliberately lets a genuine `ex-alumno` weld
+  into `exalumno`**. That is a known wrong answer chosen over a regression, and it belongs in the README
+  rather than in a comment.
+- Ordering matters and the tests pin it: the compound rule is evaluated **before** the weld rule, because
+  the weld rule matches any hyphen followed by a lowercase letter and would otherwise always win.
+- Four mutations, three caught and **one deliberately not**:
+  - forcing the old always-weld behaviour → the compound e2e test;
+  - emptying the compound list → the same test;
+  - using the whole line instead of its last word as the stem → the same test;
+  - removing the `\p{L}` guard before the hyphen → **survives**, and measurement showed why: that guard is
+    unreachable as a false condition, since reaching that branch means the weld rule already failed. It was
+    a redundant guard, deleted rather than tested. That is the **seventh** time in this project.
+- A test was added for behaviour that was correct but unpinned (`lo llamo franco -` must keep its spaced
+  dash), and it is worth keeping even though it cannot fail: it documents a decision, not a defect.
+- Ordering lesson from the whole round: the first two attempts were wrong because I reasoned about the
+  *string* the assembler had already built instead of preserving the **fact that a line break happened**.
+  Once `joinLines` carried the previous line explicitly, both rules became expressible. The same mistake
+  appeared in T14 with a filter on a condition nobody measured.
+- Evidence: `vitest run` **196 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
+  clean, `vite build` 0, `src/core` 100% on all four metrics, `pnpm test:browser` 7/7, no comments in source.
+- **Still not verified by anyone but me.** T19 covers this and T14 together.

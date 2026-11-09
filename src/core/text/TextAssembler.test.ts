@@ -274,6 +274,33 @@ describe('TextAssembler', () => {
       expect(assembler.assembleBlock(block)).toBe('dijo - y siguio');
     });
 
+    it('keeps the hyphen apart when the prefix is not a compound one', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'estaba cansa-', x: 72, width: 60 })]),
+        lines.create([fragments.create({ text: 'disimo ayer', x: 72, y: 688, width: 60 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('estaba cansadisimo ayer');
+    });
+
+    it('welds a compound prefix the rule cannot know about', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'un texto bien-', x: 72, width: 60 })]),
+        lines.create([fragments.create({ text: 'hecho a mano', x: 72, y: 688, width: 60 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('un texto bien-hecho a mano');
+    });
+
+    it('requires a letter to sit right before the hyphen', () => {
+      const block = blocks.create([
+        lines.create([fragments.create({ text: 'lo llamo franco -', x: 72, width: 75 })]),
+        lines.create([fragments.create({ text: 'aleman, bromeando', x: 72, y: 688, width: 75 })]),
+      ]);
+
+      expect(assembler.assembleBlock(block)).toBe('lo llamo franco - aleman, bromeando');
+    });
+
     it('skips lines that assemble to nothing', () => {
       const block = blocks.create([
         lines.create([fragments.create({ text: 'uno', x: 72, width: 15 })]),
