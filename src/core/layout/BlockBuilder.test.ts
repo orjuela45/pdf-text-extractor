@@ -35,6 +35,12 @@ describe('BlockBuilder', () => {
     expect(blocks[1]?.lines).toHaveLength(1);
   });
 
+  it('keeps lines whose gap equals the paragraph leading in one block', () => {
+    const blocks = builder.build([lines.createAt(72, 700), lines.createAt(72, 684)]);
+
+    expect(blocks).toHaveLength(1);
+  });
+
   it('starts a block when the font size changes', () => {
     const blocks = builder.build([lines.createAt(72, 740, 18), lines.createAt(72, 722, 10)]);
 

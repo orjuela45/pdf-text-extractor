@@ -1,4 +1,5 @@
 import { GlobalWorkerOptions } from 'pdfjs-dist';
+import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { describe, expect, it } from 'vitest';
 
 import { PdfDocumentLoader } from '../src/core/pdf/PdfDocumentLoader';
@@ -13,6 +14,6 @@ describe('PdfDocumentLoader', () => {
   it('falls back to the bundled worker URL when none is injected', () => {
     new PdfDocumentLoader();
 
-    expect(GlobalWorkerOptions.workerSrc).not.toBe('');
+    expect(GlobalWorkerOptions.workerSrc).toBe(workerUrl);
   });
 });

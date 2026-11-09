@@ -13,6 +13,12 @@ describe('BlockHitTester', () => {
     expect(tester.find([block], { x: 150, y: 705 })).toBe(block);
   });
 
+  it('returns the block for a click exactly on its bottom edge', () => {
+    const block = blocks.create([], { left: 100, right: 240, top: 710, bottom: 700 });
+
+    expect(tester.find([block], { x: 150, y: 700 })).toBe(block);
+  });
+
   it('returns null for a click that lands between two paragraphs', () => {
     const first = blocks.create([], { left: 100, right: 300, top: 710, bottom: 700 });
     const second = blocks.create([], { left: 100, right: 300, top: 660, bottom: 650 });

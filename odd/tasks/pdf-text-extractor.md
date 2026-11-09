@@ -818,3 +818,29 @@ number actually measures and what it does not.
   rather than the overlap being negotiated away, and this is the first time in the project that parallel
   writers were authorised: T16 is test-quality work in three files, T17 is the browser harness, and neither
   reads the other's output.
+
+**L37** (T16 closed, verified by the parent after delegation): the three holes that let real defects through are
+closed. Files: `tests/PdfDocumentLoader.test.ts`, `src/core/layout/BlockBuilder.test.ts`,
+`src/ui/BlockHitTester.test.ts`. **No source changed.**
+- The hollow test now asserts the bundled worker URL instead of non-emptiness. **Verified by the parent**, not
+  taken from the report: replacing the default with `'WRONG-WORKER-URL'` fails exactly
+  `falls back to the bundled worker URL when none is injected`, and `PdfDocumentLoader.ts` was restored to
+  hash `a3325097f72943cb061815de9e611ea58dd029218c15022b42503616f3b0e631`.
+- Both surviving boundary mutations are now pinned, and the parent re-ran both: the `BlockBuilder` gap `>` to
+  `>=` fails `keeps lines whose gap equals the paragraph leading in one block`, and `BlockHitTester`'s bottom
+  `>=` to `>` fails `returns the block for a click exactly on its bottom edge`. Both source files came back
+  identical to the committed version.
+- The two boundaries are **not the same kind of decision**, and the difference is worth keeping: the gap
+  boundary is **arbitrary** — 1.6x is a heuristic and the tie at exactly the threshold has no principled
+  answer — while the hit-test boundary is **principled**, because `block.bottom` is the baseline of the last
+  line and therefore part of the paragraph a user is pointing at. Pinning an arbitrary boundary is still
+  worth doing, but calling it arbitrary is the honest framing.
+- **Five more boundaries of the same class are reported and deliberately not fixed**: `BlockBuilder`'s font
+  size and indent comparisons, and `BlockHitTester`'s left, right and top edges. They are left open as a
+  scoping decision rather than silently absorbed, which is what the delegation asked for.
+- The writer's own verification, kept as corroboration rather than as proof: 198 passed / 1 skipped, `tsc` 0,
+  `eslint` 0, `prettier --check` clean, `vite build` 0, `src/core` 100% on all four metrics, no comments in the
+  three changed files.
+- Note the shape of this task: it is a **test-quality** task with no behaviour change, and the parent verified
+  it by re-running the mutations rather than by reading the diff. A test that pins nothing looks identical to a
+  test that pins everything until you try to break it.
