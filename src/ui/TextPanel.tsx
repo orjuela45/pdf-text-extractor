@@ -46,7 +46,7 @@ export function TextPanel({
   return (
     <section
       aria-label="Texto extraído"
-      className="glass flex h-full flex-col rounded-lg shadow-glass"
+      className="glass flex h-full min-h-0 flex-col rounded-lg shadow-glass"
     >
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant/60 px-4 py-3">
         <h2 className="font-sans text-xs font-semibold tracking-wide text-on-surface-variant uppercase">

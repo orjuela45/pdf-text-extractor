@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from 'react';
-import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './constants';
+import { COPY_CONFIRMATION_LABEL, MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from './constants';
 
 export interface TopBarProps {
   readonly fileName: string | null;
@@ -7,6 +7,7 @@ export interface TopBarProps {
   readonly page: number;
   readonly pageCount: number;
   readonly zoom: number;
+  readonly copyConfirmed?: boolean;
   readonly onPageChange: (page: number) => void;
   readonly onZoomChange: (zoom: number) => void;
   readonly onFile: (file: File) => void;
@@ -23,6 +24,7 @@ export function TopBar({
   page,
   pageCount,
   zoom,
+  copyConfirmed = false,
   onPageChange,
   onZoomChange,
   onFile,
@@ -72,6 +74,17 @@ export function TopBar({
       ) : null}
 
       <div className="ml-auto flex flex-wrap items-center gap-2">
+        {copyConfirmed ? (
+          <span
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-1.5 rounded-full bg-primary-container/15 px-2.5 py-1 text-xs font-medium text-primary"
+          >
+            <span aria-hidden="true">✓</span>
+            {COPY_CONFIRMATION_LABEL}
+          </span>
+        ) : null}
+
         {hasDocument ? (
           <>
             <nav

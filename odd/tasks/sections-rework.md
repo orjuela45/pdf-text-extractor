@@ -20,6 +20,13 @@ selected item.
   content. Source: defect found while reading the attached screenshot; today
   `SectionTextAssembler` and `DocumentTextWriter` diverge.
 - **S16** `pnpm test:browser` stays green and gains a check per behaviour above.
+- **S17** A successful copy is confirmed without pushing the layout or reprinting the text.
+  Verbatim: *"quita el alert de que se copio al portapapeles, es muy invasivo, mira otras
+  alternativas"*. Decided: a self-withdrawing indicator in the top bar, and only the failure
+  keeps an alert.
+- **S18** The screen is fixed and each panel scrolls on its own.
+  Verbatim: *"veo que se tiene un scroll largo por ese layout, la idea es cada uno tenga su
+  scroll independiente, que la pantalla sea fija y cada seccion tenga su scroll"*.
 
 ## Tasks
 
@@ -31,6 +38,9 @@ selected item.
 | T40 | Point the right panel at the selected block | S14 | inline, test-first | `pending` |
 | T41 | Browser checks for T37–T40 | S16 | inline | `pending` |
 | T42 | Verify in dev and production | S11–S16 | verify | `pending` |
+| T43 | Copy confirmation moves to the top bar; no panel in the page body | S17 | inline, test-first | `pending` |
+| T44 | The clipboard failure keeps its own alert and selectable fallback | S17 | inline, test-first | `pending` |
+| T45 | Fixed screen with one scroll per panel | S18 | inline, test-first | `pending` |
 
 All six are closed in L59, in one work unit: the model change crosses every file at
 once, so any intermediate state would not typecheck.
@@ -87,3 +97,40 @@ follows the selection. One work unit, because the model change crosses every fil
 - **Bonus, from running Prettier over `src`:** `src/ui/constants/HERO_COPY.ts` is now formatted,
   which closes half of the L51 finding. `DESIGN.md` is still unformatted and is deliberately
   left alone: it is a design document in the user's own words, not code this work touches.
+
+**L60** (T43 + T44 + T45 closed — the copy confirmation left the page body, and the screen
+became fixed with one scroll per panel. Two user requests in one round, three work units.)
+- **The green panel is gone.** It pushed the whole layout down and reprinted the copied text
+  in the middle of the page, which is what made it invasive. It no longer renders on success
+  at all: `CopyFeedback` returns `null` when `outcome.copied` is true.
+- **Success is confirmed in the top bar**, chosen over the other two options: a pill with a
+  tick reading `Copiado`, `role="status"` and `aria-live="polite"`, that withdraws itself after
+  `COPY_CONFIRMATION_MILLISECONDS` (2 s). `App` owns the timer through `showCopyOutcome`,
+  which clears any previous timer so a fast second copy does not leave a stale one, and a
+  cleanup effect clears it on unmount.
+- **Failure kept its own path, on purpose.** The user's own note on the attached preview was
+  that the fallback box must not get hidden behind the toast, so the failure case is the one
+  case that still demands attention: a corner toast, bottom left, with the selectable
+  textarea and its own `Cerrar`. Everything else is silent.
+- **A real defect fixed in passing:** the fallback textarea called `.select()` without
+  `.focus()`, so the text was selected while the focus stayed elsewhere and the promise in its
+  own copy — *"copied by hand"* — did not hold. The test that pins focus failed first, which
+  is how it was found.
+- **The long page scroll is gone.** The root is now `h-dvh overflow-hidden` instead of
+  `min-h-dvh`, and the notices that used to sit in the flex flow of `main` — error, progress
+  and the no-text panel — moved inside the non-document branch, so a loaded document no
+  longer has anything above the three panels pushing them down. `TextPanel` was missing
+  `min-h-0`, so its `flex-1` scroller could not shrink and grew the page instead.
+- **Measured, not assumed:** in dev at a 700px viewport, `scrollHeight === clientHeight === 700`
+  (the page does not scroll), there are **2** independent `overflow-auto` scrollers, the panels
+  are 608px tall inside a 700px viewport, and the copy button stays inside the viewport.
+- **One check failure worth recording, because the assert was mine and wrong.** The first
+  version required `scrollersThatScroll >= 1`, which demands that a panel actually overflow
+  **with short content**; on a two-block page nothing overflows, so it failed on a correct
+  layout. Replaced with the property that matters: the page does not scroll and every panel
+  is pinned inside the viewport.
+- Evidence: `vitest run` **280 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0,
+  `prettier --check` clean, `src/core` at **100% on all four metrics**, `pnpm test:browser`
+  **16 of 16 PASS**, including the new "the page stays fixed and each panel scrolls on its own".
+- Three mutations, all caught: making `CopyFeedback` render on success, freezing the
+  confirmation timer, and making the bar always show the pill.

@@ -423,6 +423,48 @@ class BrowserVerifier {
       );
     });
 
+    await this.check('the page stays fixed and each panel scrolls on its own', async () => {
+      await this.upload(page, await this.fixtures.twoPagesWithHeadings());
+      await page.waitForFunction(
+        () =>
+          (
+            document.querySelector('aside[aria-label="Bloques de la página"]')?.textContent ?? ''
+          ).includes('Capitulo uno'),
+        { timeout: 30000 },
+      );
+
+      const geometry = await page.evaluate(() => {
+        const doc = document.documentElement;
+        const scrollers = Array.from(document.querySelectorAll('div.overflow-auto'));
+        const button = Array.from(document.querySelectorAll('button')).find(
+          (element) => element.textContent === 'Copiar todo el documento',
+        );
+        const rect = button?.getBoundingClientRect() ?? null;
+
+        return {
+          pageScrolls: doc.scrollHeight > doc.clientHeight,
+          scrollers: scrollers.length,
+          panelsPinned: scrollers.every((element) => {
+            const box = element.getBoundingClientRect();
+
+            return box.height > 0 && box.bottom <= window.innerHeight + 1;
+          }),
+          copyVisible: rect !== null && rect.bottom <= window.innerHeight && rect.top >= 0,
+        };
+      });
+
+      assert.equal(geometry.pageScrolls, false, 'the page itself scrolls');
+      assert.ok(
+        geometry.scrollers >= 2,
+        `expected two independent scrollers, saw ${geometry.scrollers}`,
+      );
+      assert.ok(
+        geometry.panelsPinned,
+        'a panel is not pinned inside the viewport, so the layout is not fixed',
+      );
+      assert.equal(geometry.copyVisible, true, 'the copy control left the viewport');
+    });
+
     await this.check('the drop zone goes away once a document is loaded', async () => {
       await this.upload(page, await this.fixtures.bold());
       await page.waitForFunction(() => document.querySelectorAll('.textLayer span').length > 0, {
