@@ -40,6 +40,26 @@ free-rectangle drag selection. Recorded in L2/L3 as deferred.
 | T16 | Fix the hollow test in `tests/PdfDocumentLoader.test.ts` (asserts non-emptiness instead of the bundled worker URL) and pin the two surviving boundary mutations: `BlockBuilder` gap `>` and `BlockHitTester` bottom edge | S3 | F5 Fixes | inline |
 | T17 | Verify the security headers for real: the browser check runs its own static server and never applies the CSP, so either make it apply them or record the headers as verified only on deploy | S7 | F5 Fixes | inline |
 | T18 | Correct `README.md`: it states the suspicious-join signal needs a content scale "above about 2" and it fires near 1.1; also state plainly that the coverage number covers `src/core` only and excludes `src/ui` | S3, S8 | F5 Fixes | inline |
+| T19 | Independent verification of T14, T15, T16 and T17 | all | F5 Fixes | verify |
+| T20 | **Adopt the design system.** `DESIGN.md` defines *Serene Editorial Glass*: sage/slate palette, Newsreader + Manrope, glass surfaces, elevation, shapes, and component specs for buttons, chips, inputs, cards and floating viewer controls. Replace the ad-hoc Tailwind values with those tokens | S8, S9 | F6 Design | writer |
+| T21 | **Three-panel layout.** Left panel of section cards with a text preview and page number, centre viewer, right panel of extracted text. Top bar with file name, file size, `Pag. n de m`, zoom and the load button. The current dropzone and outline panel are absorbed into it | S1, S5, S8, S9 | F6 Design | writer |
+| T22 | **Plain / Markdown views of the extracted text**, with a word count. Markdown is new behaviour, not a style: headings, paragraphs and lists have to be emitted from the existing block and section models | S5, S9 | F6 Design | writer |
+| T23 | **Active-section highlight on the real PDF.** Clicking a section card highlights that section's geometry on the canvas with a floating label. Same machinery as click-to-copy: `SectionBuilder` blocks in PDF user space mapped through `CoordinateMapper`. The mockup draws this over simulated HTML, so it has to be built over the real canvas | S2, S4, S5, S9 | F6 Design | writer |
+| T24 | Verify the redesign: three panels at narrow widths, keyboard reachable, contrast holds, and the browser check still passes under the CSP with the new layout | S8, S9 | F6 Design | verify |
+
+### Note on the redesign, before any of it starts
+
+The mockup is a **design comp, not a specification**. Three things follow.
+- `code.html` simulates the PDF as styled HTML (`sheet-doc-title`, `sheet-header`, `sheet-footer`). Our
+  viewer renders the real thing with a canvas and pdf.js's text layer, so anything the mockup appears to do
+  *to the PDF* has to be re-derived against real geometry. T23 is the case that matters.
+- The mockup's copy is placeholder: `DocuExtract AI`, `Engine v2.4`, a fictional financial report. None of it
+  becomes product copy; the app keeps its own honest wording.
+- **T19 runs before the redesign, not after.** T14 to T17 changed extraction behaviour and the redesign only
+  redraws it. Verifying extraction first keeps a T24 failure unambiguous: it will be layout, not logic.
+- Kept deliberately: the extractor's honest states — no text layer, encrypted file, oversized file, the
+  quality report — must survive the redesign. A prettier shell that hides them would be a regression.
+
 
 ### Routing for T14–T18, set against the models actually configured
 
@@ -63,6 +83,8 @@ this fix round is not a Judgment Day; invoking them would be ceremony without a 
 `review-*` lenses belong to the native review lifecycle, which has not been started for any candidate.
 `gentle-ai-explore` is for mapping code before a decision, and T14–T18 are already mapped by the
 verification report, so spending it here would be reading what we can already cite by file and line.
+
+**S9** The interface adopts the *Serene Editorial Glass* design system in `DESIGN.md`. Verbatim: *"es el mockup de lo que quiero que se vea"*.
 
 ## Log
 
@@ -870,3 +892,33 @@ closed. Files: `tests/PdfDocumentLoader.test.ts`, `src/core/layout/BlockBuilder.
 - Still unverified, by definition: the **real Netlify deploy**. The policy is now exercised locally against the
   same source of truth, which is strictly more than before, but no header has been observed on a Netlify
   response and `docs/netlify-deploy.md` keeps telling the user to watch the console on that first deploy.
+
+**L39** (user request, verbatim): *"agrega la nueva tarea que puse que es de code desdign y screen, es el mockup de lo que quiero que se vea, analizo y dime si toca agregar nuevos todos"*
+- Analysed `DESIGN.md`, `code.html` and `screen.png`. They are **not** style-only: the mockup carries product
+  behaviour the app does not have. Five tasks added, T20 to T24, and spec **S9** for the design system.
+- What the mockup specifies and what exists today:
+
+  | Mockup | Today |
+  | --- | --- |
+  | three panels: sections / viewer / extracted text | viewer plus one side panel |
+  | section cards with a text preview and page number | a list of section titles |
+  | top bar: file name, size, `Pag. n de m`, zoom, load button | a dropzone |
+  | right panel with Plain and Markdown views and a word count | one copy control |
+  | active section highlighted on the PDF with a floating label | nothing |
+  | design system: sage/slate palette, Newsreader + Manrope, glass surfaces | ad-hoc Tailwind values |
+
+- **The finding that matters: `code.html` simulates the PDF as styled HTML** (`sheet-doc-title`,
+  `sheet-header`, `sheet-footer`). Our viewer renders the real document with a canvas and pdf.js's text layer,
+  so the active-section highlight cannot be copied from the mockup: it has to be derived from real geometry.
+  The infrastructure exists — `SectionBuilder` blocks in PDF user space, mapped through the same
+  `CoordinateMapper` that click-to-copy already uses — but it is new work, not a restyle.
+- **Markdown is new behaviour**, not a style. Headings, paragraphs and lists have to be emitted from the block
+  and section models that already exist.
+- Placeholder copy is not adopted: `DocuExtract AI`, `Engine v2.4` and the fictional report stay in the mockup.
+  The app keeps its own honest wording, and the copy is Spanish per L5.
+- **T19 is sequenced before the redesign on purpose.** T14 to T17 changed extraction behaviour; the redesign
+  only redraws it. Verifying extraction first makes a T24 failure a layout failure rather than an ambiguous one.
+- Constraint recorded for the redesign: the extractor's honest states — no text layer, encrypted file,
+  oversized file, the quality report — must survive it. A prettier shell that hides them would be a regression.
+- The three mockup files stay **untracked and unedited** pending the user's decision on whether they belong in
+  the repository at all, given that `screen.png` alone is 393 KB.
