@@ -74,9 +74,31 @@ which is the entry point for anyone reading this repository.
 - **No page virtualization.** One canvas and one text layer per page, all mounted. The 100 MB
   file guard bounds bytes, not page count, so a small file with thousands of pages is still
   unbounded.
-- **The suspicious-join signal is narrow.** It needs a content scale above about 2 to become
-  observable, because pdf.js normally stretches a separator to span its gap.
+- **The suspicious-join signal is narrow.** It becomes observable around a content scale of 1.1,
+  because pdf.js normally stretches a separator to span its gap. Measured, not assumed.
+- **A real compound beginning with a short Latin prefix welds together.** `ex-alumno` copied
+  across a line break comes out as `exalumno`. The rule keeps a hyphen when the word before it
+  is a known compound prefix, and the shipped list holds only the unambiguous ones (`franco`,
+  `anglo`, `hispano`, `italo`, `bien`, `mal`, `tipo`). The Latin prepositions were excluded on
+  purpose because `co` is indistinguishable from the ordinary start of a word: including it
+  broke `cooperar`, which is the far more common case. This is a deliberate wrong answer, not an
+  oversight.
 - A paragraph numbered like `10.000 unidades` can be read as a heading.
+
+Two columns are segmented, one column is left alone, and each column is read top to bottom
+before moving to the next.
+
+## What the coverage number means
+
+`pnpm test --coverage` reports 100% statements and branches with the `include` scoped to
+`src/core/**`. **It does not cover `src/ui/` at all**, so read it as "the extraction engine is
+fully covered", never as "the application is". The interface is covered by component tests and,
+for canvas painting, the pdf.js text layer and the real clipboard, by `pnpm test:browser`,
+which is the only check that sees any of those three.
+
+Coverage also is not mutation coverage. An earlier round of this project had 100% branch
+coverage while two boundary comparisons could be flipped without failing anything, because
+branch coverage counts the decisions taken, not the boundaries pinned. Those are now pinned.
 
 ## Deployment
 

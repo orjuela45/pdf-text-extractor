@@ -795,3 +795,26 @@ para corregir los errores y levanta el proyecto para ver como va"*
 - Evidence: `vitest run` **196 passed / 1 skipped**, `tsc` 0 on both configs, `eslint` 0, `prettier --check`
   clean, `vite build` 0, `src/core` 100% on all four metrics, `pnpm test:browser` 7/7, no comments in source.
 - **Still not verified by anyone but me.** T19 covers this and T14 together.
+
+**L36** (T18 closed, and T16 + T17 delegated in parallel): `README.md` now states what the coverage
+number actually measures and what it does not.
+- Corrected a **false statement**: the suspicious-join signal was described as needing a content scale
+  "above about 2". Independent measurement put it near **1.1**. The wording had been carried forward from
+  L27 without being re-measured, which is the same failure mode as the CSP claim in L31.
+- Added the **new known limitation** that the hyphen fix deliberately creates: a real compound with a short
+  Latin prefix welds, so `ex-alumno` becomes `exalumno`. Written as a deliberate wrong answer, with the
+  reason — `co` is indistinguishable from the ordinary start of a word, and including it broke `cooperar` —
+  rather than as an unexplained defect.
+- Added a **"What the coverage number means"** section, because the project has been quoting "100%" in a way
+  that invites the wrong conclusion: the `include` is scoped to `src/core/**`, so the number says nothing
+  about `src/ui/`, and that is why `pnpm test:browser` exists. Also states plainly that **branch coverage is
+  not mutation coverage**, using this project's own case: 100% branches while two boundary comparisons could
+  be flipped freely.
+- Records that two columns are now segmented, since that changed in L34 and the README still implied the
+  opposite by omission.
+- T16 and T17 are deliberately run as **two writers in parallel**, with disjoint allowed surfaces. The
+  runtime enforced that disjointness and rejected the first T17 launch, which had claimed `src/ui/**` and
+  overlapped T16's `src/ui/BlockHitTester.test.ts`. The surface was narrowed to what the task actually needs
+  rather than the overlap being negotiated away, and this is the first time in the project that parallel
+  writers were authorised: T16 is test-quality work in three files, T17 is the browser harness, and neither
+  reads the other's output.
